@@ -14,21 +14,3 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     detectSessionInUrl: false,
   },
 });
-
-// Initialize auth - Supabase anonymous sign-in for data access
-export const initializeAuthIfNeeded = async (): Promise<void> => {
-  try {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-
-    if (!data.session) {
-      const { error: signInError } = await supabase.auth.signInAnonymously();
-      if (signInError) throw signInError;
-      console.log("Signed in anonymously to Supabase");
-    } else {
-      console.log("User already authenticated:", data.session.user.id);
-    }
-  } catch (error) {
-    console.error("Error initializing auth:", error);
-  }
-};

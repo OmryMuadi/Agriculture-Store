@@ -22,9 +22,13 @@ export default function DashboardScreen() {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    ;
+  const today = new Date().toISOString().split("T")[0];
 
+  const todayCases = cases.filter(
+    (c) => c.case_date === today
+  );
+
+  useEffect(() => {
     const unsubClients = subscribeToClients(setClients);
     const unsubPlants = subscribeToPlants(setPlants);
     const unsubDiseases = subscribeToDiseases(setDiseases);
@@ -61,7 +65,7 @@ export default function DashboardScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={styles.loadingText}>Loading store dashboard...</Text>
+        <Text style={styles.loadingText}>טוען נתונים...</Text>
       </View>
     );
   }
@@ -71,9 +75,9 @@ export default function DashboardScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         {/* Welcome Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>AgriStore Dashboard</Text>
+          <Text style={styles.greeting}>אמא אדמה</Text>
           <Text style={styles.subGreeting}>
-            Track cases, recommend solutions, and manage client consultations.
+            ניהול טיפולים, פתרונות ולקוחות במקום אחד.
           </Text>
         </View>
 
@@ -85,7 +89,7 @@ export default function DashboardScreen() {
               <Ionicons name="journal-outline" size={24} color="#2e7d32" />
             </View>
             <Text style={styles.statNumber}>{cases.length}</Text>
-            <Text style={styles.statLabel}>Total Cases</Text>
+            <Text style={styles.statLabel}>סה"כ טיפולים</Text>
           </TouchableOpacity>
 
           {/* Total Clients */}
@@ -97,10 +101,10 @@ export default function DashboardScreen() {
               <Ionicons name="people-outline" size={24} color="#1565c0" />
             </View>
             <Text style={styles.statNumber}>{clients.length}</Text>
-            <Text style={styles.statLabel}>Clients</Text>
+            <Text style={styles.statLabel}>לקוחות</Text>
           </TouchableOpacity>
 
-          {/* Plants & Diseases */}
+          {/* Plants */}
           <TouchableOpacity 
             style={styles.statCard} 
             onPress={() => router.push({ pathname: "/directory" as any, params: { tab: "plants" } })}
@@ -108,20 +112,34 @@ export default function DashboardScreen() {
             <View style={[styles.iconWrapper, { backgroundColor: "#fff8e1" }]}>
               <Ionicons name="flower-outline" size={24} color="#ffb300" />
             </View>
-            <Text style={styles.statNumber}>{plants.length + diseases.length}</Text>
-            <Text style={styles.statLabel}>Plants & Diseases</Text>
+            <Text style={styles.statNumber}>{plants.length}</Text>
+            <Text style={styles.statLabel}>גידולים</Text>
+          </TouchableOpacity>
+
+          {/* Diseases */}
+          <TouchableOpacity 
+            style={styles.statCard} 
+            onPress={() => router.push({ pathname: "/directory" as any, params: { tab: "diseases" } })}
+          >
+            <View style={[styles.iconWrapper, { backgroundColor: "#fff8e1" }]}>
+              <Ionicons name="bug-outline" size={24} color="#ffb300" />
+            </View>
+            <Text style={styles.statNumber}>{diseases.length}</Text>
+            <Text style={styles.statLabel}>מחלות</Text>
           </TouchableOpacity>
         </View>
 
+        
+
         {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionTitle}>פעולות זריזות</Text>
         <View style={styles.actionsRow}>
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: "#2e7d32" }]}
             onPress={() => router.push({ pathname: "/cases" as any, params: { triggerAdd: "true" } })}
           >
             <Ionicons name="add-circle" size={20} color="#fff" style={styles.actionIcon} />
-            <Text style={styles.actionButtonText}>New Case</Text>
+            <Text style={styles.actionButtonText}>טיפול חדש</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -129,20 +147,20 @@ export default function DashboardScreen() {
             onPress={() => router.push({ pathname: "/directory" as any, params: { triggerAdd: "client" } })}
           >
             <Ionicons name="person-add" size={18} color="#fff" style={styles.actionIcon} />
-            <Text style={styles.actionButtonText}>Add Client</Text>
+            <Text style={styles.actionButtonText}>הוסף לקוח</Text>
           </TouchableOpacity>
         </View>
 
         {/* Recent consultations list */}
-        <Text style={styles.sectionTitle}>Recent Case Activity</Text>
-        {cases.length === 0 ? (
+        <Text style={styles.sectionTitle}>טיפולים אחרונים</Text>
+        {todayCases.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="folder-open-outline" size={32} color="#78909c" />
-            <Text style={styles.emptyText}>No cases recorded yet. Click "New Case" to start.</Text>
+            <Text style={styles.emptyText}>עדיין לא נוספו טיפולים. לחץ על "טיפול חדש" כדי להתחיל.</Text>
           </View>
         ) : (
           <View style={styles.caseList}>
-            {cases.slice(0, 4).map((c) => {
+            {todayCases.slice(0, 4).map((c) => {
               const clientName = getClientName(c.client_id);
               const plantName = getPlantName(c.plant_id);
               const diseaseName = getDiseaseName(c.disease_id);
@@ -164,7 +182,7 @@ export default function DashboardScreen() {
                   </View>
                   {c.solution ? (
                     <Text style={styles.solutionText} numberOfLines={2}>
-                      <Text style={{ fontWeight: "600" }}>Solution: </Text>
+                      <Text style={{ fontWeight: "600" }}>פתרון: </Text>
                       {c.solution}
                     </Text>
                   ) : null}
@@ -210,12 +228,14 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "bold",
     color: "#1a1a1a",
+    textAlign: "center",
   },
   subGreeting: {
     fontSize: 14,
     color: "#666",
     marginTop: 4,
     lineHeight: 20,
+    textAlign: "center",
   },
   statsGrid: {
     flexDirection: "row",
@@ -260,6 +280,7 @@ const styles = StyleSheet.create({
     color: "#1a1a1a",
     marginBottom: 12,
     marginTop: 8,
+    textAlign: "right",
   },
   actionsRow: {
     flexDirection: "row",

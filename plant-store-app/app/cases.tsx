@@ -14,7 +14,7 @@ import {
   ScrollView
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { subscribeToCases, addCase, updateCase, deleteCase, Case } from "../src/entities/case.entity";
 import { Client, subscribeToClients } from "../src/entities/client.entity";
 import { Plant, subscribeToPlants } from "../src/entities/plant.entity"
@@ -38,6 +38,7 @@ export default function CasesScreen() {
   const [selectedPlantId, setSelectedPlantId] = useState<number | null>(null);
   const [selectedDiseaseId, setSelectedDiseaseId] = useState<number | null>(null);
   const [solution, setSolution] = useState("");
+  const [cost, setCost] = useState("");
 
   // Selector Modal States (Nested)
   const [selectorVisible, setSelectorVisible] = useState(false);
@@ -69,8 +70,12 @@ export default function CasesScreen() {
   useEffect(() => {
     if (params.triggerAdd === "true") {
       openAddModal();
+
+      router.setParams({
+        triggerAdd: undefined,
+      });
     }
-  }, [params]);
+  }, [params.triggerAdd]);
 
   const openAddModal = () => {
     setEditingCase(null);
@@ -78,6 +83,7 @@ export default function CasesScreen() {
     setSelectedPlantId(null);
     setSelectedDiseaseId(null);
     setSolution("");
+    setCost("");
     setModalVisible(true);
   };
 
@@ -87,6 +93,7 @@ export default function CasesScreen() {
     setSelectedPlantId(c.plant_id);
     setSelectedDiseaseId(c.disease_id);
     setSolution(c.solution || "");
+    setCost(c.cost.toString() || "");
     setModalVisible(true);
   };
 
@@ -101,6 +108,8 @@ export default function CasesScreen() {
       plant_id: selectedPlantId,
       disease_id: selectedDiseaseId,
       solution: solution.trim(),
+      case_date: new Date().toISOString().split("T")[0],
+      cost: Number(cost) || 0,
     };
 
     try {
@@ -134,6 +143,23 @@ export default function CasesScreen() {
         }
       ]
     );
+  };
+
+  const formatCaseDate = (dateString: string) => {
+    const today = new Date();
+    const date = new Date(dateString);
+
+    // Remove the time portion
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+
+    const diffDays =
+      (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (diffDays === 0) return "היום";
+    if (diffDays === 1) return "אתמול";
+
+    return date.toLocaleDateString("he-IL");
   };
 
   const getClientName = (id: number) => {
@@ -252,9 +278,7 @@ export default function CasesScreen() {
                   ) : null}
                 </View>
                 <Text style={styles.dateText}>
-                  {item.case_date
-                    ? new Date(item.case_date).toLocaleDateString()
-                    : "Today"}
+                  {formatCaseDate(item.case_date)}
                 </Text>
               </View>
 
@@ -267,12 +291,14 @@ export default function CasesScreen() {
                 </View>
               </View>
 
-              {item.solution ? (
-                <View style={styles.solutionBox}>
-                  <Text style={styles.solutionTitle}>Recommended Solution:</Text>
-                  <Text style={styles.solutionBody}>{item.solution}</Text>
-                </View>
-              ) : null}
+              <View style={styles.solutionBox}>
+                <Text style={styles.solutionTitle}>Recommended Solution:</Text>
+                <Text style={styles.solutionBody}>{item.solution}</Text>
+              </View>
+
+              <Text style={styles.costText}>
+                עלות: ₪{item.cost}
+              </Text>
 
               {/* Actions row */}
               <View style={styles.actionRow}>
@@ -309,7 +335,7 @@ export default function CasesScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {editingCase ? "Edit Case Record" : "Log Crop Case"}
+                {editingCase ? "עריכת רשומה" : "הוספת רשומה חדשה"}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#333" />
@@ -318,7 +344,7 @@ export default function CasesScreen() {
 
             <ScrollView contentContainerStyle={styles.formContainer}>
               {/* Client Selection */}
-              <Text style={styles.label}>Select Client</Text>
+              <Text style={styles.label}>לקוח</Text>
               <TouchableOpacity 
                 style={styles.selectButton} 
                 onPress={() => openSelector("client")}
@@ -327,13 +353,13 @@ export default function CasesScreen() {
                   styles.selectButtonText, 
                   selectedClientId ? { color: "#333" } : { color: "#999" }
                 ]}>
-                  {selectedClientId ? getClientName(selectedClientId) : "Choose a client..."}
+                  {selectedClientId ? getClientName(selectedClientId) : "תבחר לקוח..."}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
 
               {/* Plant Selection */}
-              <Text style={styles.label}>Select Plant / Crop</Text>
+              <Text style={styles.label}>גידול</Text>
               <TouchableOpacity 
                 style={styles.selectButton} 
                 onPress={() => openSelector("plant")}
@@ -342,13 +368,13 @@ export default function CasesScreen() {
                   styles.selectButtonText, 
                   selectedPlantId ? { color: "#333" } : { color: "#999" }
                 ]}>
-                  {selectedPlantId ? getPlantName(selectedPlantId) : "Choose a plant..."}
+                  {selectedPlantId ? getPlantName(selectedPlantId) : "תבחר גידול..."}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
 
               {/* Disease Selection */}
-              <Text style={styles.label}>Select Disease / Issue</Text>
+              <Text style={styles.label}>מחלה</Text>
               <TouchableOpacity 
                 style={styles.selectButton} 
                 onPress={() => openSelector("disease")}
@@ -357,16 +383,16 @@ export default function CasesScreen() {
                   styles.selectButtonText, 
                   selectedDiseaseId ? { color: "#333" } : { color: "#999" }
                 ]}>
-                  {selectedDiseaseId ? getDiseaseName(selectedDiseaseId) : "Choose a disease..."}
+                  {selectedDiseaseId ? getDiseaseName(selectedDiseaseId) : "תבחר מחלה..."}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
 
               {/* Solution Text */}
-              <Text style={styles.label}>Solution / Recommendations</Text>
+              <Text style={styles.label}>תיאור לפתרון</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Write specific pesticide, fertilizer dosage, or cultural advice..."
+                placeholder="רשום את הפתרון שהצעת ללקוח..."
                 placeholderTextColor="#999"
                 multiline={true}
                 numberOfLines={4}
@@ -374,8 +400,18 @@ export default function CasesScreen() {
                 onChangeText={setSolution}
               />
 
+              <Text style={styles.label}>עלות</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="רשום עלות הטיפול..."
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                value={cost}
+                onChangeText={setCost}
+              />
+
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveBtnText}>Save Consultation</Text>
+                <Text style={styles.saveBtnText}>שמור</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -470,6 +506,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#333",
+    textAlign: "right", // Align text to the right for Hebrew
   },
   listContainer: {
     padding: 16,
@@ -616,9 +653,11 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   modalTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: "bold",
     color: "#1a1a1a",
+    textAlign: "right", // Align text to the right for Hebrew
   },
   formContainer: {
     padding: 16,
@@ -629,6 +668,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 8,
     marginTop: 12,
+    textAlign: "right",
   },
   input: {
     borderWidth: 1,
@@ -638,6 +678,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: "#fafafa",
     color: "#333",
+    textAlign: "right",
   },
   textArea: {
     height: 100,
@@ -656,7 +697,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
   },
   selectButtonText: {
+    flex: 1,
     fontSize: 15,
+    textAlign: "right",
   },
   saveBtn: {
     backgroundColor: "#2e7d32",
@@ -729,5 +772,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     marginTop: 4,
+  },
+  costText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2e7d32",
   },
 });

@@ -13,7 +13,7 @@ import {
   ActivityIndicator
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Client, subscribeToClients, addClient, updateClient, deleteClient } from "../src/entities/client.entity";
 import { Plant, subscribeToPlants, addPlant, deletePlant } from "../src/entities/plant.entity"
 import { Disease, subscribeToDiseases, addDisease, deleteDisease } from "../src/entities/disease.entity"
@@ -41,6 +41,8 @@ export default function DirectoryScreen() {
   // Simple Quick Add Inputs for Plants / Diseases
   const [newItemName, setNewItemName] = useState("");
 
+  const [itemModalVisible, setItemModalVisible] = useState(false);
+
   useEffect(() => {
     // Listen for real-time updates on all directories
     const unsubClients = subscribeToClients(setClients);
@@ -59,14 +61,18 @@ export default function DirectoryScreen() {
 
   // Listen to router params to switch tab or trigger action
   useEffect(() => {
-    if (params.tab === "clients" || params.tab === "plants") {
+    if (params.tab === "clients" || params.tab === "plants" || params.tab === "diseases") {
       setActiveTab(params.tab as ActiveTab);
     }
     if (params.triggerAdd === "client") {
       setActiveTab("clients");
       openAddClientModal();
+
+      router.setParams({
+      triggerAdd: undefined,
+    });
     }
-  }, [params]);
+  }, [params, params.triggerAdd]);
 
   const openAddClientModal = () => {
     setEditingClient(null);
@@ -114,9 +120,9 @@ export default function DirectoryScreen() {
       `האם אתה בטוח שברצונך למחוק את הלקוח "${client.first_name} ${client.last_name}"?
 כל הרשומות המשויכות אליו יימחקו.`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "ביטול", style: "cancel" },
         { 
-          text: "Delete", 
+          text: "מחק", 
           style: "destructive", 
           onPress: async () => {
             try {
@@ -227,22 +233,6 @@ export default function DirectoryScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Add Bar for Plants & Diseases */}
-      {activeTab !== "clients" ? (
-        <View style={styles.quickAddContainer}>
-          <TextInput
-            style={styles.quickAddInput}
-            placeholder={`הוסף ${activeTab === "plants" ? "גידול חדש" : "מחלה חדשה"}...`}
-            value={newItemName}
-            onChangeText={setNewItemName}
-            onSubmitEditing={handleAddItemDirect}
-          />
-          <TouchableOpacity style={styles.quickAddBtn} onPress={handleAddItemDirect}>
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
       {/* Search Input */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
@@ -319,12 +309,23 @@ export default function DirectoryScreen() {
         />
       )}
 
-      {/* Floating Add Client Button */}
-      {activeTab === "clients" ? (
-        <TouchableOpacity style={styles.fab} onPress={openAddClientModal}>
-          <Ionicons name="person-add" size={24} color="#fff" />
-        </TouchableOpacity>
-      ) : null}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          if (activeTab === "clients") {
+            openAddClientModal();
+          } else {
+            setNewItemName("");
+            setItemModalVisible(true);
+          }
+        }}
+      >
+        <Ionicons
+          name={activeTab === "clients" ? "person-add" : "add"}
+          size={24}
+          color="#fff"
+        />
+      </TouchableOpacity>
 
       {/* Add/Edit Client Modal */}
       <Modal
@@ -377,6 +378,51 @@ export default function DirectoryScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={itemModalVisible}
+        onRequestClose={() => setItemModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {activeTab === "plants" ? "הוספת גידול" : "הוספת מחלה"}
+              </Text>
+
+              <TouchableOpacity onPress={() => setItemModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formContainer}>
+              <Text style={styles.label}>
+                {activeTab === "plants" ? "שם הגידול" : "שם המחלה"}
+              </Text>
+
+              <TextInput
+                style={styles.input}
+                value={newItemName}
+                onChangeText={setNewItemName}
+              />
+
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={async () => {
+                  await handleAddItemDirect();
+                  setItemModalVisible(false);
+                }}
+              >
+                <Text style={styles.saveBtnText}>שמור</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -422,7 +468,7 @@ const styles = StyleSheet.create({
     color: "#2e7d32",
   },
   searchContainer: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     alignItems: "center",
     backgroundColor: "#fff",
     margin: 16,
@@ -431,43 +477,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     height: 48,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  searchIcon: {
-    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
     color: "#333",
+    textAlign: "right",
+    writingDirection: "rtl",
+    paddingVertical: 0,
   },
-  quickAddContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    alignItems: "center",
-  },
-  quickAddInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    height: 44,
-    paddingHorizontal: 12,
-    backgroundColor: "#fff",
-    fontSize: 14,
-  },
-  quickAddBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: "#2e7d32",
-    justifyContent: "center",
-    alignItems: "center",
+  searchIcon: {
     marginLeft: 8,
   },
   listContainer: {
@@ -581,13 +600,16 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   modalTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: "bold",
     color: "#1a1a1a",
+    textAlign: "right",
   },
   formContainer: {
     padding: 16,
     paddingBottom: 32,
+    textAlign: "right",
   },
   label: {
     fontSize: 14,
@@ -595,6 +617,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 8,
     marginTop: 12,
+    textAlign: "right",
   },
   input: {
     borderWidth: 1,

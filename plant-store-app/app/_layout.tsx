@@ -1,13 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { useEffect } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function RootLayout() {
-  useEffect(() => {
-    // Initialize Supabase anonymous auth session on app start
-    ;
-  }, []);
-
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -16,8 +12,8 @@ export default function RootLayout() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: "#e0e0e0",
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 8,
         },
         headerStyle: {
@@ -27,6 +23,7 @@ export default function RootLayout() {
         headerTitleStyle: {
           fontWeight: "bold",
         },
+        headerTitleAlign: "center",
       }}
     >
       <Tabs.Screen
@@ -64,7 +61,7 @@ export default function RootLayout() {
         options={{
           title: "Directory",
           tabBarLabel: "מאגר נתונים",
-          headerTitle: "רשימה",
+          headerTitle: "מאגר נתונים",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? "folder" : "folder-outline"} 
