@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from "react";
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  FlatList, 
-  TextInput, 
-  TouchableOpacity, 
-  Modal, 
-  KeyboardAvoidingView, 
-  Platform, 
-  Alert,
-  ActivityIndicator
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Client, subscribeToClients, addClient, updateClient, deleteClient } from "../src/entities/client.entity";
-import { Plant, subscribeToPlants, addPlant, deletePlant } from "../src/entities/plant.entity"
-import { Disease, subscribeToDiseases, addDisease, deleteDisease } from "../src/entities/disease.entity"
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { addClient, Client, deleteClient, subscribeToClients, updateClient } from "../src/entities/client.entity";
+import { addDisease, deleteDisease, Disease, subscribeToDiseases } from "../src/entities/disease.entity";
+import { addPlant, deletePlant, Plant, subscribeToPlants } from "../src/entities/plant.entity";
 
 type ActiveTab = "clients" | "plants" | "diseases";
 
@@ -63,14 +63,16 @@ export default function DirectoryScreen() {
   useEffect(() => {
     if (params.tab === "clients" || params.tab === "plants" || params.tab === "diseases") {
       setActiveTab(params.tab as ActiveTab);
+      router.setParams({ tab: undefined });
     }
+
     if (params.triggerAdd === "client") {
       setActiveTab("clients");
       openAddClientModal();
 
       router.setParams({
-      triggerAdd: undefined,
-    });
+        triggerAdd: undefined,
+      });
     }
   }, [params, params.triggerAdd]);
 
@@ -86,7 +88,7 @@ export default function DirectoryScreen() {
     setEditingClient(client);
     setFirstName(client.first_name);
     setLastName(client.last_name);
-    setPhoneNumber(client.phone_number);
+    setPhoneNumber(client.phone_number ?? "");
     setClientModalVisible(true);
   };
 
@@ -96,10 +98,11 @@ export default function DirectoryScreen() {
       return;
     }
 
+    const phone = phoneNumber.trim();
     const clientData = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      phone_number: phoneNumber.trim(),
+      phone_number: phone ? phone : undefined,
     };
 
     try {
@@ -188,7 +191,7 @@ export default function DirectoryScreen() {
       return clients.filter(c => 
         c.first_name.toLowerCase().includes(query) || 
         c.last_name.toLowerCase().includes(query) ||
-        c.phone_number.includes(query)
+        c.phone_number?.toLowerCase().includes(query)
       );
     }
     if (activeTab === "plants") {
@@ -235,18 +238,20 @@ export default function DirectoryScreen() {
 
       {/* Search Input */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder={`חפש ${activeTab === "clients"
-            ? "לקוח"
-            : activeTab === "plants"
-            ? "גידול"
-            : "מחלה"}...`}
+          placeholder={
+            activeTab === "clients"
+              ? "חפש לקוח..."
+              : activeTab === "plants"
+              ? "חפש גידול..."
+              : "חפש מחלה..."
+          }
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholderTextColor="#999"
         />
+        <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery("")}>
             <Ionicons name="close-circle" size={18} color="#999" />
@@ -282,7 +287,9 @@ export default function DirectoryScreen() {
                 <View style={styles.clientCard}>
                   <View style={styles.clientInfo}>
                     <Text style={styles.clientName}>{client.first_name} {client.last_name}</Text>
-                      <Text style={styles.clientPhone}>{client.phone_number}טלפון:</Text>
+                    {client.phone_number ? (
+                      <Text style={styles.clientPhone}>טלפון: {client.phone_number}</Text>
+                    ) : null}
                   </View>
                   <View style={styles.cardActions}>
                     <TouchableOpacity onPress={() => openEditClientModal(client)}>
@@ -363,7 +370,7 @@ export default function DirectoryScreen() {
                 onChangeText={setLastName}
               />
 
-              <Text style={styles.label}>מספר טלפון</Text>
+              <Text style={styles.label}>מספר טלפון (אופציונלי)</Text>
               <TextInput
                 style={styles.input}
                 keyboardType="phone-pad"
@@ -484,7 +491,7 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "right",
     writingDirection: "rtl",
-    paddingVertical: 0,
+    paddingVertical: 4,
   },
   searchIcon: {
     marginLeft: 8,

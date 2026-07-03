@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  FlatList, 
-  TextInput, 
-  TouchableOpacity, 
-  Modal, 
-  KeyboardAvoidingView, 
-  Platform, 
-  Alert,
-  ActivityIndicator,
-  ScrollView
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { subscribeToCases, addCase, updateCase, deleteCase, Case } from "../src/entities/case.entity";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { addCase, Case, deleteCase, subscribeToCases, updateCase } from "../src/entities/case.entity";
 import { Client, subscribeToClients } from "../src/entities/client.entity";
-import { Plant, subscribeToPlants } from "../src/entities/plant.entity"
-import { Disease, subscribeToDiseases } from "../src/entities/disease.entity"
+import { Disease, subscribeToDiseases } from "../src/entities/disease.entity";
+import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
 
 export default function CasesScreen() {
   const params = useLocalSearchParams();
@@ -169,7 +169,7 @@ export default function CasesScreen() {
 
   const getClientPhone = (id: number) => {
     const client = clients.find((c) => c.id === id);
-    return client ? client.phone_number || "" : "";
+    return client?.phone_number;
   };
 
   const getPlantName = (id: number) => {
@@ -274,7 +274,7 @@ export default function CasesScreen() {
                 <View>
                   <Text style={styles.clientTitle}>{getClientName(item.client_id)}</Text>
                   {getClientPhone(item.client_id) ? (
-                    <Text style={styles.clientPhone}>Phone: {getClientPhone(item.client_id)}</Text>
+                    <Text style={styles.clientPhone}>טלפון: {getClientPhone(item.client_id)}</Text>
                   ) : null}
                 </View>
                 <Text style={styles.dateText}>
@@ -292,7 +292,7 @@ export default function CasesScreen() {
               </View>
 
               <View style={styles.solutionBox}>
-                <Text style={styles.solutionTitle}>Recommended Solution:</Text>
+                <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
                 <Text style={styles.solutionBody}>{item.solution}</Text>
               </View>
 
@@ -304,11 +304,11 @@ export default function CasesScreen() {
               <View style={styles.actionRow}>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => openEditModal(item)}>
                   <Ionicons name="pencil" size={15} color="#2e7d32" />
-                  <Text style={[styles.actionBtnText, { color: "#2e7d32" }]}>Edit</Text>
+                  <Text style={[styles.actionBtnText, { color: "#2e7d32" }]}>ערוך</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item)}>
                   <Ionicons name="trash-outline" size={15} color="#c62828" />
-                  <Text style={[styles.actionBtnText, { color: "#c62828" }]}>Delete</Text>
+                  <Text style={[styles.actionBtnText, { color: "#c62828" }]}>מחק</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -428,7 +428,13 @@ export default function CasesScreen() {
         <View style={styles.selectorOverlay}>
           <View style={styles.selectorContent}>
             <View style={styles.selectorHeader}>
-              <Text style={styles.selectorTitle}>Select {selectorType}</Text>
+              <Text style={styles.selectorTitle}>
+                {selectorType === "client"
+                  ? "בחר לקוח"
+                  : selectorType === "plant"
+                  ? "בחר גידול"
+                  : "בחר מחלה"}
+              </Text>
               <TouchableOpacity onPress={() => setSelectorVisible(false)}>
                 <Ionicons name="close" size={22} color="#333" />
               </TouchableOpacity>
@@ -436,15 +442,21 @@ export default function CasesScreen() {
 
             <TextInput
               style={styles.selectorSearch}
-              placeholder={`Search ${selectorType}...`}
+              placeholder={
+                selectorType === "client"
+                  ? "חפש לקוח..."
+                  : selectorType === "plant"
+                  ? "חפש גידול..."
+                  : "חפש מחלה..."
+              }
               value={selectorSearch}
               onChangeText={setSelectorSearch}
             />
 
             {getFilteredSelectorData().length === 0 ? (
               <View style={styles.selectorEmpty}>
-                <Text style={styles.selectorEmptyText}>No items found.</Text>
-                <Text style={styles.selectorEmptySub}>Add them in the Directory tab first.</Text>
+                <Text style={styles.selectorEmptyText}>לא נמצאו פריטים.</Text>
+                <Text style={styles.selectorEmptySub}>הוסף אותם קודם בלשונית Directory.</Text>
               </View>
             ) : (
               <FlatList<SelectorItem>
@@ -524,7 +536,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   caseHeader: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 10,
@@ -533,18 +545,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#1a1a1a",
+    textAlign: "right",
   },
   clientPhone: {
     fontSize: 12,
     color: "#666",
     marginTop: 2,
+    textAlign: "right",
   },
   dateText: {
     fontSize: 11,
     color: "#999",
+    textAlign: "right",
   },
   infoRow: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     marginBottom: 12,
   },
   infoPillGreen: {
@@ -552,7 +567,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    marginRight: 8,
+    marginLeft: 8,
   },
   infoPillTextGreen: {
     color: "#2e7d32",
@@ -583,11 +598,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     marginBottom: 4,
+    textAlign: "right",
   },
   solutionBody: {
     fontSize: 13,
     color: "#444",
     lineHeight: 18,
+    textAlign: "right",
   },
   actionRow: {
     flexDirection: "row",
@@ -778,5 +795,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#2e7d32",
+    textAlign: "right",
   },
 });
