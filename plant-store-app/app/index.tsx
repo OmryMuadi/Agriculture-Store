@@ -61,6 +61,16 @@ export default function DashboardScreen() {
     return disease ? disease.name : "מחלה לא מוכרת";
   };
 
+  const getClientPhone = (id: number) => {
+    const client = clients.find((c) => c.id === id);
+    return client?.phone_number;
+  };
+
+  const getClientVillage = (id: number) => {
+    const client = clients.find((c) => c.id === id);
+    return client?.village;
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -172,25 +182,44 @@ export default function DashboardScreen() {
                   onPress={() => router.push("/cases" as any)}
                 >
                   <View style={styles.caseCardHeader}>
-                    <View>
+                    <View style={styles.caseClientInfo}>
                       <Text style={styles.clientText}>{clientName}</Text>
-                      <Text style={styles.issueText}>
-                        {plantName} • <Text style={styles.diseaseHighlight}>{diseaseName}</Text>
+                      {getClientVillage(c.client_id) ? (
+                        <Text style={styles.clientDetailText}>ישוב: {getClientVillage(c.client_id)}</Text>
+                      ) : null}
+                      {getClientPhone(c.client_id) ? (
+                        <Text style={styles.clientDetailText}>טלפון: {getClientPhone(c.client_id)}</Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.caseMeta}>
+                      <View style={styles.caseMetaRow}>
+                        <Text style={styles.caseDate}>
+                          {c.case_date
+                            ? new Date(c.case_date).toLocaleDateString()
+                            : "Today"}
+                        </Text>
+                        <Ionicons name="chevron-back" size={16} color="#bbb" />
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoPillGreen}>
+                      <Text style={styles.infoPillTextGreen}>{plantName}</Text>
+                    </View>
+                    <View style={styles.infoPillRed}>
+                      <Text style={styles.infoPillTextRed}>{diseaseName}</Text>
+                    </View>
+                  </View>
+
+                  {c.solution ? (
+                    <View style={styles.solutionBox}>
+                      <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
+                      <Text style={styles.solutionText} numberOfLines={2}>
+                        {c.solution}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color="#bbb" />
-                  </View>
-                  {c.solution ? (
-                    <Text style={styles.solutionText} numberOfLines={2}>
-                      <Text style={{ fontWeight: "600" }}>פתרון: </Text>
-                      {c.solution}
-                    </Text>
                   ) : null}
-                  <Text style={styles.caseDate}>
-                    {c.case_date
-                      ? new Date(c.case_date).toLocaleDateString()
-                      : "Today"}
-                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -329,7 +358,7 @@ const styles = StyleSheet.create({
   caseCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -338,38 +367,86 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   caseCardHeader: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+    alignItems: "flex-start",
+    marginBottom: 10,
+  },
+  caseClientInfo: {
+    flex: 1,
   },
   clientText: {
     fontSize: 15,
     fontWeight: "bold",
     color: "#1a1a1a",
+    textAlign: "right",
   },
-  issueText: {
-    fontSize: 13,
+  clientDetailText: {
+    fontSize: 12,
     color: "#666",
     marginTop: 2,
+    textAlign: "right",
   },
-  diseaseHighlight: {
+  caseMeta: {
+    alignItems: "flex-end",
+    marginLeft: 8,
+  },
+  caseMetaRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+  },
+  infoRow: {
+    flexDirection: "row-reverse",
+    marginBottom: 8,
+  },
+  infoPillGreen: {
+    backgroundColor: "#e8f5e9",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  infoPillTextGreen: {
+    color: "#2e7d32",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  infoPillRed: {
+    backgroundColor: "#ffebee",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  infoPillTextRed: {
     color: "#c62828",
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  solutionBox: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#2e7d32",
+  },
+  solutionTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+    textAlign: "right",
   },
   solutionText: {
     fontSize: 13,
     color: "#444",
     lineHeight: 18,
-    backgroundColor: "#f9f9f9",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    textAlign: "right",
   },
   caseDate: {
     fontSize: 11,
     color: "#999",
-    marginTop: 10,
     textAlign: "right",
   },
 });

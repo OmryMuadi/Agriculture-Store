@@ -172,6 +172,11 @@ export default function CasesScreen() {
     return client?.phone_number;
   };
 
+  const getClientVillage = (id: number) => {
+    const client = clients.find((c) => c.id === id);
+    return client?.village;
+  };
+
   const getPlantName = (id: number) => {
     const plant = plants.find((p) => p.id === id);
     return plant ? plant.name : "גידול לא ידוע";
@@ -273,6 +278,9 @@ export default function CasesScreen() {
               <View style={styles.caseHeader}>
                 <View>
                   <Text style={styles.clientTitle}>{getClientName(item.client_id)}</Text>
+                  {getClientVillage(item.client_id) ? (
+                    <Text style={styles.clientPhone}>ישוב: {getClientVillage(item.client_id)}</Text>
+                  ) : null}
                   {getClientPhone(item.client_id) ? (
                     <Text style={styles.clientPhone}>טלפון: {getClientPhone(item.client_id)}</Text>
                   ) : null}
@@ -414,67 +422,61 @@ export default function CasesScreen() {
                 <Text style={styles.saveBtnText}>שמור</Text>
               </TouchableOpacity>
             </ScrollView>
+
+            {selectorVisible ? (
+              <View style={styles.selectorOverlay}>
+                <View style={styles.selectorContent}>
+                  <View style={styles.selectorHeader}>
+                    <Text style={styles.selectorTitle}>
+                      {selectorType === "client"
+                        ? "בחר לקוח"
+                        : selectorType === "plant"
+                        ? "בחר גידול"
+                        : "בחר מחלה"}
+                    </Text>
+                    <TouchableOpacity onPress={() => setSelectorVisible(false)}>
+                      <Ionicons name="close" size={22} color="#333" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <TextInput
+                    style={styles.selectorSearch}
+                    placeholder={
+                      selectorType === "client"
+                        ? "חפש לקוח..."
+                        : selectorType === "plant"
+                        ? "חפש גידול..."
+                        : "חפש מחלה..."
+                    }
+                    value={selectorSearch}
+                    onChangeText={setSelectorSearch}
+                  />
+
+                  {getFilteredSelectorData().length === 0 ? (
+                    <View style={styles.selectorEmpty}>
+                      <Text style={styles.selectorEmptyText}>לא נמצאו פריטים.</Text>
+                      <Text style={styles.selectorEmptySub}>הוסף אותם קודם בלשונית Directory.</Text>
+                    </View>
+                  ) : (
+                    <FlatList<SelectorItem>
+                      data={getFilteredSelectorData()}
+                      keyExtractor={(item) => item.id.toString()}
+                      style={styles.selectorList}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity 
+                          style={styles.selectorItem}
+                          onPress={() => handleSelectValue(item.id)}
+                        >
+                          <Text style={styles.selectorItemText}>{item.label}</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  )}
+                </View>
+              </View>
+            ) : null}
           </View>
         </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Nested Selector Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={selectorVisible}
-        onRequestClose={() => setSelectorVisible(false)}
-      >
-        <View style={styles.selectorOverlay}>
-          <View style={styles.selectorContent}>
-            <View style={styles.selectorHeader}>
-              <Text style={styles.selectorTitle}>
-                {selectorType === "client"
-                  ? "בחר לקוח"
-                  : selectorType === "plant"
-                  ? "בחר גידול"
-                  : "בחר מחלה"}
-              </Text>
-              <TouchableOpacity onPress={() => setSelectorVisible(false)}>
-                <Ionicons name="close" size={22} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.selectorSearch}
-              placeholder={
-                selectorType === "client"
-                  ? "חפש לקוח..."
-                  : selectorType === "plant"
-                  ? "חפש גידול..."
-                  : "חפש מחלה..."
-              }
-              value={selectorSearch}
-              onChangeText={setSelectorSearch}
-            />
-
-            {getFilteredSelectorData().length === 0 ? (
-              <View style={styles.selectorEmpty}>
-                <Text style={styles.selectorEmptyText}>לא נמצאו פריטים.</Text>
-                <Text style={styles.selectorEmptySub}>הוסף אותם קודם בלשונית Directory.</Text>
-              </View>
-            ) : (
-              <FlatList<SelectorItem>
-                data={getFilteredSelectorData()}
-                keyExtractor={(item) => item.id.toString()}
-                style={{ maxHeight: 300 }}
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={styles.selectorItem}
-                    onPress={() => handleSelectValue(item.id)}
-                  >
-                    <Text style={styles.selectorItemText}>{item.label}</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            )}
-          </View>
-        </View>
       </Modal>
     </View>
   );
@@ -733,10 +735,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   selectorOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     padding: 20,
+    zIndex: 20,
   },
   selectorContent: {
     backgroundColor: "#fff",
@@ -747,6 +750,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    maxHeight: "80%",
   },
   selectorHeader: {
     flexDirection: "row",
@@ -766,6 +770,9 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 10,
     marginBottom: 12,
+  },
+  selectorList: {
+    maxHeight: 300,
   },
   selectorItem: {
     paddingVertical: 12,

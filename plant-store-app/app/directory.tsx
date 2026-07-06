@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +18,7 @@ import {
 import { addClient, Client, deleteClient, subscribeToClients, updateClient } from "../src/entities/client.entity";
 import { addDisease, deleteDisease, Disease, subscribeToDiseases } from "../src/entities/disease.entity";
 import { addPlant, deletePlant, Plant, subscribeToPlants } from "../src/entities/plant.entity";
+import { CityDropdownItem, fetchIsraelCities } from "../src/services/israelCities";
 
 type ActiveTab = "clients" | "plants" | "diseases";
 
@@ -36,7 +38,12 @@ export default function DirectoryScreen() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [village, setVillage] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [cityOptions, setCityOptions] = useState<CityDropdownItem[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityError, setCityError] = useState<string | null>(null);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
 
   // Simple Quick Add Inputs for Plants / Diseases
   const [newItemName, setNewItemName] = useState("");
@@ -56,6 +63,35 @@ export default function DirectoryScreen() {
       unsubClients();
       unsubPlants();
       unsubDiseases();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCities = async () => {
+      setCityLoading(true);
+      setCityError(null);
+      try {
+        const cities = await fetchIsraelCities();
+        if (!cancelled) {
+          setCityOptions(cities);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCityError(error instanceof Error ? error.message : "לא ניתן לטעון ישובים");
+        }
+      } finally {
+        if (!cancelled) {
+          setCityLoading(false);
+        }
+      }
+    };
+
+    loadCities();
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -80,7 +116,10 @@ export default function DirectoryScreen() {
     setEditingClient(null);
     setFirstName("");
     setLastName("");
+    setVillage("");
     setPhoneNumber("");
+    setCityError(null);
+    setShowCitySuggestions(false);
     setClientModalVisible(true);
   };
 
@@ -88,7 +127,10 @@ export default function DirectoryScreen() {
     setEditingClient(client);
     setFirstName(client.first_name);
     setLastName(client.last_name);
+    setVillage(client.village);
     setPhoneNumber(client.phone_number ?? "");
+    setCityError(null);
+    setShowCitySuggestions(false);
     setClientModalVisible(true);
   };
 
@@ -98,11 +140,22 @@ export default function DirectoryScreen() {
       return;
     }
 
+    if (!lastName.trim()) {
+      Alert.alert("שגיאה", "יש להזין שם משפחה.");
+      return;
+    }
+
+    if (!village.trim()) {
+      Alert.alert("שגיאה", "יש להזין כפר/ישוב.");
+      return;
+    }
+
     const phone = phoneNumber.trim();
     const clientData = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      phone_number: phone ? phone : undefined,
+      village: village.trim(),
+      phone_number: phone || "",
     };
 
     try {
@@ -185,23 +238,27 @@ export default function DirectoryScreen() {
   };
 
   // Searching filter
-  const getFilteredData = () => {
+  const getFilteredData = (): Client[] | Plant[] | Disease[] => {
     const query = searchQuery.toLowerCase();
     if (activeTab === "clients") {
-      return clients.filter(c => 
-        c.first_name.toLowerCase().includes(query) || 
-        c.last_name.toLowerCase().includes(query) ||
-        c.phone_number?.toLowerCase().includes(query)
-      );
+      return clients.filter((c) => {
+        return (
+          c.first_name.toLowerCase().includes(query) ||
+          c.last_name.toLowerCase().includes(query) ||
+          c.village.toLowerCase().includes(query) ||
+          c.phone_number?.toLowerCase().includes(query)
+        );
+      });
     }
     if (activeTab === "plants") {
-      return plants.filter(p => p.name.toLowerCase().includes(query));
+      return plants.filter((p) => p.name.toLowerCase().includes(query));
     }
     if (activeTab === "diseases") {
-      return diseases.filter(d => d.name.toLowerCase().includes(query));
+      return diseases.filter((d) => d.name.toLowerCase().includes(query));
     }
     return [];
   };
+  const filteredData = getFilteredData();
 
   if (loading) {
     return (
@@ -260,7 +317,7 @@ export default function DirectoryScreen() {
       </View>
 
       {/* Main List */}
-      {getFilteredData().length === 0 ? (
+      {filteredData.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons 
             name={activeTab === "clients" ? "people-outline" : activeTab === "plants" ? "flower-outline" : "bug-outline"} 
@@ -277,8 +334,8 @@ export default function DirectoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={getFilteredData()}
-          keyExtractor={(item) => item.id}
+          data={filteredData as Array<Client | Plant | Disease>}
+          keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContainer}
           renderItem={({ item }) => {
             if (activeTab === "clients") {
@@ -287,6 +344,7 @@ export default function DirectoryScreen() {
                 <View style={styles.clientCard}>
                   <View style={styles.clientInfo}>
                     <Text style={styles.clientName}>{client.first_name} {client.last_name}</Text>
+                    <Text style={styles.clientPhone}>כפר/ישוב: {client.village}</Text>
                     {client.phone_number ? (
                       <Text style={styles.clientPhone}>טלפון: {client.phone_number}</Text>
                     ) : null}
@@ -302,11 +360,12 @@ export default function DirectoryScreen() {
                 </View>
               );
             } else {
-              const label = (item as Plant | Disease).name;
+              const entry = item as unknown as Plant | Disease;
+              const label = entry.name;
               return (
                 <View style={styles.itemRow}>
                   <Text style={styles.itemRowText}>{label}</Text>
-                  <TouchableOpacity onPress={() => handleDeleteItem(item.id, label, activeTab === "plants" ? "plant" : "disease")}>
+                  <TouchableOpacity onPress={() => handleDeleteItem(String(entry.id), label, activeTab === "plants" ? "plant" : "disease")}>
                     <Ionicons name="trash-outline" size={18} color="#c62828" />
                   </TouchableOpacity>
                 </View>
@@ -355,33 +414,82 @@ export default function DirectoryScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.formContainer}>
-              <Text style={styles.label}>שם פרטי</Text>
-              <TextInput
-                style={styles.input}
-                value={firstName}
-                onChangeText={setFirstName}
-              />
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.formContainer}>
+                <Text style={styles.label}>שם פרטי</Text>
+                <TextInput
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                />
 
-              <Text style={styles.label}>שם משפחה</Text>
-              <TextInput
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-              />
+                <Text style={styles.label}>שם משפחה</Text>
+                <TextInput
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                />
 
-              <Text style={styles.label}>מספר טלפון (אופציונלי)</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="phone-pad"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-              />
+                <Text style={styles.label}>כפר/ישוב</Text>
+                <TextInput
+                  style={styles.input}
+                  value={village}
+                  onChangeText={(text) => {
+                    setVillage(text);
+                    setShowCitySuggestions(text.trim().length > 0);
+                  }}
+                  onFocus={() => setShowCitySuggestions(village.trim().length > 0)}
+                  placeholder={cityLoading ? "טוען ישובים..." : "הקלד או בחר ישוב"}
+                  placeholderTextColor="#999"
+                  autoCapitalize="words"
+                />
+                {cityLoading ? (
+                  <Text style={styles.helperText}>טוען רשימת ישובים...</Text>
+                ) : cityError ? (
+                  <Text style={styles.helperTextError}>{cityError}</Text>
+                ) : showCitySuggestions && cityOptions.length > 0 ? (
+                  <View style={styles.suggestionsBox}>
+                    {cityOptions
+                      .filter((item) => {
+                        const normalizedQuery = village.trim().toLowerCase();
+                        if (!normalizedQuery) return true;
+                        return item.label.toLowerCase().includes(normalizedQuery);
+                      })
+                      .slice(0, 8)
+                      .map((item) => (
+                        <TouchableOpacity
+                          key={item.value}
+                          style={styles.suggestionItem}
+                          onPress={() => {
+                            setVillage(item.label);
+                            setCityError(null);
+                            setShowCitySuggestions(false);
+                          }}
+                        >
+                          <Text style={styles.suggestionText}>{item.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                  </View>
+                ) : null}
 
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveClient}>
-                <Text style={styles.saveBtnText}>שמור</Text>
-              </TouchableOpacity>
-            </View>
+                <Text style={styles.label}>מספר טלפון (אופציונלי)</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="phone-pad"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                />
+
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveClient}>
+                  <Text style={styles.saveBtnText}>שמור</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -406,27 +514,34 @@ export default function DirectoryScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.formContainer}>
-              <Text style={styles.label}>
-                {activeTab === "plants" ? "שם הגידול" : "שם המחלה"}
-              </Text>
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.formContainer}>
+                <Text style={styles.label}>
+                  {activeTab === "plants" ? "שם הגידול" : "שם המחלה"}
+                </Text>
 
-              <TextInput
-                style={styles.input}
-                value={newItemName}
-                onChangeText={setNewItemName}
-              />
+                <TextInput
+                  style={styles.input}
+                  value={newItemName}
+                  onChangeText={setNewItemName}
+                />
 
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={async () => {
-                  await handleAddItemDirect();
-                  setItemModalVisible(false);
-                }}
-              >
-                <Text style={styles.saveBtnText}>שמור</Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={async () => {
+                    await handleAddItemDirect();
+                    setItemModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.saveBtnText}>שמור</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -618,6 +733,12 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     textAlign: "right",
   },
+  modalScrollView: {
+    maxHeight: "100%",
+  },
+  modalScrollContent: {
+    paddingBottom: 16,
+  },
   label: {
     fontSize: 14,
     fontWeight: "600",
@@ -636,6 +757,37 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     color: "#333",
     marginBottom: 8,
+    textAlign: "right",
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 8,
+    textAlign: "right",
+  },
+  helperTextError: {
+    fontSize: 12,
+    color: "#c62828",
+    marginBottom: 8,
+    textAlign: "right",
+  },
+  suggestionsBox: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    marginBottom: 8,
+  },
+  suggestionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: "#333",
+    textAlign: "right",
   },
   saveBtn: {
     backgroundColor: "#2e7d32",
