@@ -18,6 +18,7 @@ import {
 import { addCase, Case, deleteCase, subscribeToCases, updateCase } from "../src/entities/case.entity";
 import { Client, subscribeToClients } from "../src/entities/client.entity";
 import { Disease, subscribeToDiseases } from "../src/entities/disease.entity";
+import { Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
 import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
 
 export default function CasesScreen() {
@@ -25,6 +26,7 @@ export default function CasesScreen() {
   const [clients, setClients] = useState<Client[]>([]);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,12 +39,13 @@ export default function CasesScreen() {
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedPlantId, setSelectedPlantId] = useState<number | null>(null);
   const [selectedDiseaseId, setSelectedDiseaseId] = useState<number | null>(null);
+  const [selectedFertilizerIds, setSelectedFertilizerIds] = useState<number[]>([]);
   const [solution, setSolution] = useState("");
   const [cost, setCost] = useState("");
 
   // Selector Modal States (Nested)
   const [selectorVisible, setSelectorVisible] = useState(false);
-  const [selectorType, setSelectorType] = useState<"client" | "plant" | "disease">("client");
+  const [selectorType, setSelectorType] = useState<"client" | "plant" | "disease" | "fertilizer">("client");
   const [selectorSearch, setSelectorSearch] = useState("");
 
   // Common base type for selector list items
@@ -53,6 +56,7 @@ export default function CasesScreen() {
     const unsubClients = subscribeToClients(setClients);
     const unsubPlants = subscribeToPlants(setPlants);
     const unsubDiseases = subscribeToDiseases(setDiseases);
+    const unsubFertilizers = subscribeToFertilizers(setFertilizers);
     const unsubCases = subscribeToCases((casesList) => {
       setCases(casesList);
       setLoading(false);
@@ -62,6 +66,7 @@ export default function CasesScreen() {
       unsubClients();
       unsubPlants();
       unsubDiseases();
+      unsubFertilizers();
       unsubCases();
     };
   }, []);
@@ -82,6 +87,7 @@ export default function CasesScreen() {
     setSelectedClientId(null);
     setSelectedPlantId(null);
     setSelectedDiseaseId(null);
+    setSelectedFertilizerIds([]);
     setSolution("");
     setCost("");
     setModalVisible(true);
@@ -92,6 +98,7 @@ export default function CasesScreen() {
     setSelectedClientId(c.client_id);
     setSelectedPlantId(c.plant_id);
     setSelectedDiseaseId(c.disease_id);
+    setSelectedFertilizerIds(c.fertilizer_ids ?? []);
     setSolution(c.solution || "");
     setCost(c.cost.toString() || "");
     setModalVisible(true);
@@ -107,6 +114,8 @@ export default function CasesScreen() {
       client_id: selectedClientId,
       plant_id: selectedPlantId,
       disease_id: selectedDiseaseId,
+      // always send the array (may be empty) so updateCase can remove existing fertilizers
+      fertilizer_ids: selectedFertilizerIds,
       solution: solution.trim(),
       case_date: new Date().toISOString().split("T")[0],
       cost: Number(cost) || 0,
@@ -187,8 +196,13 @@ export default function CasesScreen() {
     return disease ? disease.name : "מחלה לא ידועה";
   };
 
+  const getFertilizerName = (id: number) => {
+    const fertilizer = fertilizers.find((f) => f.id === id);
+    return fertilizer ? fertilizer.name : "דשן לא ידוע";
+  };
+
   // Selector helpers
-  const openSelector = (type: "client" | "plant" | "disease") => {
+  const openSelector = (type: "client" | "plant" | "disease" | "fertilizer") => {
     setSelectorType(type);
     setSelectorSearch("");
     setSelectorVisible(true);
@@ -198,6 +212,13 @@ export default function CasesScreen() {
     if (selectorType === "client") setSelectedClientId(id);
     if (selectorType === "plant") setSelectedPlantId(id);
     if (selectorType === "disease") setSelectedDiseaseId(id);
+    if (selectorType === "fertilizer") {
+      // toggle selection
+      setSelectedFertilizerIds((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      );
+      return;
+    }
     setSelectorVisible(false);
   };
 
@@ -206,8 +227,14 @@ export default function CasesScreen() {
     const clientName = getClientName(c.client_id).toLowerCase();
     const plantName = getPlantName(c.plant_id).toLowerCase();
     const diseaseName = getDiseaseName(c.disease_id).toLowerCase();
+    const fertilizerName = c.fertilizer_ids && c.fertilizer_ids.length > 0 ? c.fertilizer_ids.map(getFertilizerName).join(" ").toLowerCase() : "";
     const query = searchQuery.toLowerCase();
-    return clientName.includes(query) || plantName.includes(query) || diseaseName.includes(query);
+    return (
+      clientName.includes(query) ||
+      plantName.includes(query) ||
+      diseaseName.includes(query) ||
+      fertilizerName.includes(query)
+    );
   });
 
   // Build normalized selector items
@@ -230,6 +257,11 @@ export default function CasesScreen() {
       return diseases
         .filter(d => d.name.toLowerCase().includes(query))
         .map(d => ({ id: d.id, label: d.name }));
+    }
+    if (selectorType === "fertilizer") {
+      return fertilizers
+        .filter(f => f.name.toLowerCase().includes(query))
+        .map(f => ({ id: f.id, label: f.name }));
     }
     return [];
   };
@@ -298,6 +330,18 @@ export default function CasesScreen() {
                   <Text style={styles.infoPillTextRed}>{getDiseaseName(item.disease_id)}</Text>
                 </View>
               </View>
+
+              {item.fertilizer_ids && item.fertilizer_ids.length > 0 ? (
+                <View style={styles.fertilizerRow}>
+                  <View style={styles.fertilizerChipsContainer}>
+                    {item.fertilizer_ids.map((fid) => (
+                      <View key={fid} style={styles.fertilizerChip}>
+                        <Text style={styles.fertilizerChipText}>{getFertilizerName(fid)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
 
               <View style={styles.solutionBox}>
                 <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
@@ -381,6 +425,20 @@ export default function CasesScreen() {
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
 
+              <Text style={styles.label}>דשן (אופציונלי)</Text>
+              <TouchableOpacity 
+                style={styles.selectButton} 
+                onPress={() => openSelector("fertilizer")}
+              >
+                <Text style={[
+                  styles.selectButtonText, 
+                  selectedFertilizerIds.length > 0 ? { color: "#333" } : { color: "#999" }
+                ]}>
+                  {selectedFertilizerIds.length > 0 ? selectedFertilizerIds.map(getFertilizerName).join(", ") : "תבחר דשן..."}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#666" />
+              </TouchableOpacity>
+
               {/* Disease Selection */}
               <Text style={styles.label}>מחלה</Text>
               <TouchableOpacity 
@@ -410,7 +468,7 @@ export default function CasesScreen() {
 
               <Text style={styles.label}>עלות</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.costInput]}
                 placeholder="רשום עלות הטיפול..."
                 placeholderTextColor="#999"
                 keyboardType="numeric"
@@ -432,6 +490,8 @@ export default function CasesScreen() {
                         ? "בחר לקוח"
                         : selectorType === "plant"
                         ? "בחר גידול"
+                        : selectorType === "fertilizer"
+                        ? "בחר דשן"
                         : "בחר מחלה"}
                     </Text>
                     <TouchableOpacity onPress={() => setSelectorVisible(false)}>
@@ -446,6 +506,8 @@ export default function CasesScreen() {
                         ? "חפש לקוח..."
                         : selectorType === "plant"
                         ? "חפש גידול..."
+                        : selectorType === "fertilizer"
+                        ? "חפש דשן..."
                         : "חפש מחלה..."
                     }
                     value={selectorSearch}
@@ -455,7 +517,7 @@ export default function CasesScreen() {
                   {getFilteredSelectorData().length === 0 ? (
                     <View style={styles.selectorEmpty}>
                       <Text style={styles.selectorEmptyText}>לא נמצאו פריטים.</Text>
-                      <Text style={styles.selectorEmptySub}>הוסף אותם קודם בלשונית Directory.</Text>
+                      <Text style={styles.selectorEmptySub}>הוסף אותם קודם בלשונית למאגר נתונים.</Text>
                     </View>
                   ) : (
                     <FlatList<SelectorItem>
@@ -467,7 +529,12 @@ export default function CasesScreen() {
                           style={styles.selectorItem}
                           onPress={() => handleSelectValue(item.id)}
                         >
-                          <Text style={styles.selectorItemText}>{item.label}</Text>
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                            <Text style={styles.selectorItemText}>{item.label}</Text>
+                            {selectorType === "fertilizer" && selectedFertilizerIds.includes(item.id) ? (
+                              <Ionicons name="checkmark" size={18} color="#2e7d32" />
+                            ) : null}
+                          </View>
                         </TouchableOpacity>
                       )}
                     />
@@ -573,6 +640,18 @@ const styles = StyleSheet.create({
   },
   infoPillTextGreen: {
     color: "#2e7d32",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  infoPillBlue: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  infoPillTextBlue: {
+    color: "#1565c0",
     fontSize: 12,
     fontWeight: "600",
   },
@@ -753,7 +832,7 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
   selectorHeader: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
@@ -762,6 +841,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textTransform: "capitalize",
+    textAlign: "right",
   },
   selectorSearch: {
     borderWidth: 1,
@@ -769,6 +849,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     height: 40,
     paddingHorizontal: 10,
+    textAlign: "right",
     marginBottom: 12,
   },
   selectorList: {
@@ -782,6 +863,7 @@ const styles = StyleSheet.create({
   selectorItemText: {
     fontSize: 15,
     color: "#333",
+    textAlign: "right",
   },
   selectorEmpty: {
     paddingVertical: 20,
@@ -791,11 +873,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     fontWeight: "500",
+    textAlign: "right",
   },
   selectorEmptySub: {
     fontSize: 12,
     color: "#999",
     marginTop: 4,
+    textAlign: "right",
+  },
+  fertilizerChipsContainer: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    alignItems: "center",
+    width: "100%",
+  },
+  fertilizerChip: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+    marginBottom: 4,
+  },
+  fertilizerChipText: {
+    color: "#1565c0",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  fertilizerMoreChip: {
+    backgroundColor: "#cfd8dc",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+    marginBottom: 4,
+  },
+  fertilizerRow: {
+    marginTop: 8,
+    marginBottom: 8,
+    width: "100%",
+  },
+  costInput: {
+    fontSize: 15,
+    paddingVertical: 10,
+    textAlign: "right",
+    height: 56,
   },
   costText: {
     marginTop: 8,

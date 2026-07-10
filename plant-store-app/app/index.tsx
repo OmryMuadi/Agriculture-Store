@@ -13,12 +13,14 @@ import {
 import { Case, subscribeToCases } from "../src/entities/case.entity";
 import { Client, subscribeToClients } from "../src/entities/client.entity";
 import { Disease, subscribeToDiseases } from "../src/entities/disease.entity";
+import { Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
 import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
 
 export default function DashboardScreen() {
   const [clients, setClients] = useState<Client[]>([]);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +34,7 @@ export default function DashboardScreen() {
     const unsubClients = subscribeToClients(setClients);
     const unsubPlants = subscribeToPlants(setPlants);
     const unsubDiseases = subscribeToDiseases(setDiseases);
+    const unsubFertilizers = subscribeToFertilizers(setFertilizers);
     const unsubCases = subscribeToCases((casesList) => {
       setCases(casesList);
       setLoading(false);
@@ -41,6 +44,7 @@ export default function DashboardScreen() {
       unsubClients();
       unsubPlants();
       unsubDiseases();
+      unsubFertilizers();
       unsubCases();
     };
   }, []);
@@ -48,7 +52,7 @@ export default function DashboardScreen() {
   // Helper resolvers
   const getClientName = (id: number) => {
     const client = clients.find((c) => c.id === id);
-    return client ? `${client.first_name} ${client.last_name || ""}`.trim() : "לקוח לא מוכר";
+    return client ? `${client.first_name} ${client.last_name}`.trim() : "לקוח לא מוכר";
   };
 
   const getPlantName = (id: number) => {
@@ -126,12 +130,24 @@ export default function DashboardScreen() {
             <Text style={styles.statLabel}>גידולים</Text>
           </TouchableOpacity>
 
+          {/* Fertilizers */}
+          <TouchableOpacity 
+            style={styles.statCard} 
+            onPress={() => router.push({ pathname: "/directory" as any, params: { tab: "fertilizers" } })}
+          >
+            <View style={[styles.iconWrapper, { backgroundColor: "#e8f5ff" }]}> 
+              <Ionicons name="leaf-outline" size={24} color="#2e7d32" />
+            </View>
+            <Text style={styles.statNumber}>{fertilizers.length}</Text>
+            <Text style={styles.statLabel}>דשנים</Text>
+          </TouchableOpacity>
+
           {/* Diseases */}
           <TouchableOpacity 
             style={styles.statCard} 
             onPress={() => router.push({ pathname: "/directory" as any, params: { tab: "diseases" } })}
           >
-            <View style={[styles.iconWrapper, { backgroundColor: "#fff8e1" }]}>
+            <View style={[styles.iconWrapper, { backgroundColor: "#fff8e1" }]}> 
               <Ionicons name="bug-outline" size={24} color="#ffb300" />
             </View>
             <Text style={styles.statNumber}>{diseases.length}</Text>
@@ -139,13 +155,11 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        
-
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>פעולות זריזות</Text>
         <View style={styles.actionsRow}>
           <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: "#2e7d32" }]}
+            style={[styles.actionButton, { backgroundColor: "#2e7d32" } ]}
             onPress={() => router.push({ pathname: "/cases" as any, params: { triggerAdd: "true" } })}
           >
             <Ionicons name="add-circle" size={20} color="#fff" style={styles.actionIcon} />
@@ -153,18 +167,17 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: "#37474f" }]}
-            onPress={() => router.push({ pathname: "/directory" as any, params: { triggerAdd: "client" } })}
+            style={[styles.actionButton, { backgroundColor: "#37474f" } ]}
+            onPress={() => router.push({ pathname: "/directory" as any, params: { tab: "clients" } })}
           >
-            <Ionicons name="person-add" size={18} color="#fff" style={styles.actionIcon} />
-            <Text style={styles.actionButtonText}>הוסף לקוח</Text>
+            <Ionicons name="people-outline" size={20} color="#fff" style={styles.actionIcon} />
+            <Text style={styles.actionButtonText}>לקוחות</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Recent consultations list */}
-        <Text style={styles.sectionTitle}>טיפולים אחרונים</Text>
+        <Text style={styles.sectionTitle}>טיפולים להיום</Text>
         {todayCases.length === 0 ? (
-          <View style={styles.emptyCard}>
+          <View style={styles.emptyState}>
             <Ionicons name="folder-open-outline" size={32} color="#78909c" />
             <Text style={styles.emptyText}>עדיין לא נוספו טיפולים. לחץ על "טיפול חדש" כדי להתחיל.</Text>
           </View>
@@ -333,6 +346,13 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  emptyState: {
+    marginTop: 16,
+    padding: 24,
+    backgroundColor: "#d0eaf4",
+    borderRadius: 16,
+    alignItems: "center",
   },
   emptyCard: {
     backgroundColor: "#fff",

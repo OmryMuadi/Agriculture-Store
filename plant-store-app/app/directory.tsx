@@ -17,10 +17,11 @@ import {
 } from "react-native";
 import { addClient, Client, deleteClient, subscribeToClients, updateClient } from "../src/entities/client.entity";
 import { addDisease, deleteDisease, Disease, subscribeToDiseases } from "../src/entities/disease.entity";
+import { addFertilizer, deleteFertilizer, Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
 import { addPlant, deletePlant, Plant, subscribeToPlants } from "../src/entities/plant.entity";
 import { CityDropdownItem, fetchIsraelCities } from "../src/services/israelCities";
 
-type ActiveTab = "clients" | "plants" | "diseases";
+type ActiveTab = "clients" | "plants" | "diseases" | "fertilizers";
 
 export default function DirectoryScreen() {
   const params = useLocalSearchParams();
@@ -32,6 +33,7 @@ export default function DirectoryScreen() {
   const [clients, setClients] = useState<Client[]>([]);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
 
   // Add/Edit Client Modal
   const [clientModalVisible, setClientModalVisible] = useState(false);
@@ -58,11 +60,13 @@ export default function DirectoryScreen() {
       setDiseases(diseasesList);
       setLoading(false);
     });
+    const unsubFertilizers = subscribeToFertilizers(setFertilizers);
 
     return () => {
       unsubClients();
       unsubPlants();
       unsubDiseases();
+      unsubFertilizers();
     };
   }, []);
 
@@ -97,7 +101,7 @@ export default function DirectoryScreen() {
 
   // Listen to router params to switch tab or trigger action
   useEffect(() => {
-    if (params.tab === "clients" || params.tab === "plants" || params.tab === "diseases") {
+    if (params.tab === "clients" || params.tab === "plants" || params.tab === "diseases" || params.tab === "fertilizers") {
       setActiveTab(params.tab as ActiveTab);
       router.setParams({ tab: undefined });
     }
@@ -200,6 +204,8 @@ export default function DirectoryScreen() {
         await addPlant({ name: newItemName.trim() });
       } else if (activeTab === "diseases") {
         await addDisease({ name: newItemName.trim() });
+      } else if (activeTab === "fertilizers") {
+        await addFertilizer({ name: newItemName.trim() });
       }
       setNewItemName("");
     } catch (error) {
@@ -207,14 +213,16 @@ export default function DirectoryScreen() {
         "שגיאה",
         activeTab === "plants"
           ? "הוספת הגידול נכשלה. ייתכן שהוא כבר קיים."
-          : "הוספת המחלה נכשלה. ייתכן שהיא כבר קיימת."
+          : activeTab === "diseases"
+          ? "הוספת המחלה נכשלה. ייתכן שהיא כבר קיימת."
+          : "הוספת הדשן נכשלה. ייתכן שהוא כבר קיים."
       );
     }
   };
 
-  const handleDeleteItem = (id: string, name: string, type: "plant" | "disease") => {
+  const handleDeleteItem = (id: string, name: string, type: "plant" | "disease" | "fertilizer") => {
     Alert.alert(
-      `מחיקת ${type === "plant" ? "גידול" : "מחלה"}`,
+      `מחיקת ${type === "plant" ? "גידול" : type === "disease" ? "מחלה" : "דשן"}`,
       `האם אתה בטוח שברצונך למחוק את "${name}"?`,
       [
         { text: "ביטול", style: "cancel" },
@@ -225,8 +233,10 @@ export default function DirectoryScreen() {
             try {
               if (type === "plant") {
                 await deletePlant(Number(id));
-              } else {
+              } else if (type === "disease") {
                 await deleteDisease(Number(id));
+              } else {
+                await deleteFertilizer(Number(id));
               }
             } catch (error) {
               Alert.alert("שגיאה", "המחיקה נכשלה.");
@@ -255,6 +265,9 @@ export default function DirectoryScreen() {
     }
     if (activeTab === "diseases") {
       return diseases.filter((d) => d.name.toLowerCase().includes(query));
+    }
+    if (activeTab === "fertilizers") {
+      return fertilizers.filter((f) => f.name.toLowerCase().includes(query));
     }
     return [];
   };
@@ -291,6 +304,12 @@ export default function DirectoryScreen() {
         >
           <Text style={[styles.tabText, activeTab === "diseases" && styles.activeTabText]}>מחלות</Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === "fertilizers" && styles.activeTab]}
+          onPress={() => { setActiveTab("fertilizers"); setSearchQuery(""); }}
+        >
+          <Text style={[styles.tabText, activeTab === "fertilizers" && styles.activeTabText]}>דשנים</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Input */}
@@ -302,7 +321,9 @@ export default function DirectoryScreen() {
               ? "חפש לקוח..."
               : activeTab === "plants"
               ? "חפש גידול..."
-              : "חפש מחלה..."
+              : activeTab === "diseases"
+              ? "חפש מחלה..."
+              : "חפש דשן..."
           }
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -320,7 +341,7 @@ export default function DirectoryScreen() {
       {filteredData.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons 
-            name={activeTab === "clients" ? "people-outline" : activeTab === "plants" ? "flower-outline" : "bug-outline"} 
+            name={activeTab === "clients" ? "people-outline" : activeTab === "plants" ? "flower-outline" : activeTab === "diseases" ? "bug-outline" : "leaf-outline"} 
             size={64} 
             color="#ccc" 
           />
@@ -329,12 +350,14 @@ export default function DirectoryScreen() {
               ? "לקוחות"
               : activeTab === "plants"
               ? "גידולים"
-              : "מחלות"
+              : activeTab === "diseases"
+              ? "מחלות"
+              : "דשנים"
           }.</Text>
         </View>
       ) : (
         <FlatList
-          data={filteredData as Array<Client | Plant | Disease>}
+          data={filteredData as Array<Client | Plant | Disease | Fertilizer>}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContainer}
           renderItem={({ item }) => {
@@ -360,12 +383,12 @@ export default function DirectoryScreen() {
                 </View>
               );
             } else {
-              const entry = item as unknown as Plant | Disease;
+              const entry = item as unknown as Plant | Disease | Fertilizer;
               const label = entry.name;
               return (
                 <View style={styles.itemRow}>
                   <Text style={styles.itemRowText}>{label}</Text>
-                  <TouchableOpacity onPress={() => handleDeleteItem(String(entry.id), label, activeTab === "plants" ? "plant" : "disease")}>
+                  <TouchableOpacity onPress={() => handleDeleteItem(String(entry.id), label, activeTab === "plants" ? "plant" : activeTab === "diseases" ? "disease" : "fertilizer") }>
                     <Ionicons name="trash-outline" size={18} color="#c62828" />
                   </TouchableOpacity>
                 </View>
@@ -506,7 +529,13 @@ export default function DirectoryScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {activeTab === "plants" ? "הוספת גידול" : "הוספת מחלה"}
+                {activeTab === "clients"
+                  ? "הוספת לקוח"
+                  : activeTab === "plants"
+                  ? "הוספת גידול"
+                  : activeTab === "diseases"
+                  ? "הוספת מחלה"
+                  : "הוספת דשן"}
               </Text>
 
               <TouchableOpacity onPress={() => setItemModalVisible(false)}>
@@ -522,7 +551,11 @@ export default function DirectoryScreen() {
             >
               <View style={styles.formContainer}>
                 <Text style={styles.label}>
-                  {activeTab === "plants" ? "שם הגידול" : "שם המחלה"}
+                  {activeTab === "plants"
+                    ? "שם הגידול"
+                    : activeTab === "diseases"
+                    ? "שם המחלה"
+                    : "שם הדשן"}
                 </Text>
 
                 <TextInput
