@@ -110,15 +110,27 @@ export default function CasesScreen() {
       return;
     }
 
+    const trimmedSolution = solution.trim();
+    if (!trimmedSolution) {
+      Alert.alert("שגיאה", "יש להזין תיאור לפתרון.");
+      return;
+    }
+
+    const trimmedCost = cost.trim();
+    const parsedCost = Number(trimmedCost);
+    if (!/^\d+$/.test(trimmedCost) || !Number.isSafeInteger(parsedCost) || parsedCost <= 0) {
+      Alert.alert("שגיאה", "יש להזין עלות חיובית במספרים שלמים.");
+      return;
+    }
+
     const caseData = {
       client_id: selectedClientId,
       plant_id: selectedPlantId,
       disease_id: selectedDiseaseId,
       // always send the array (may be empty) so updateCase can remove existing fertilizers
       fertilizer_ids: selectedFertilizerIds,
-      solution: solution.trim(),
-      case_date: new Date().toISOString().split("T")[0],
-      cost: Number(cost) || 0,
+      solution: trimmedSolution,
+      cost: parsedCost,
     };
 
     try {
@@ -471,7 +483,7 @@ export default function CasesScreen() {
                 style={[styles.input, styles.costInput]}
                 placeholder="רשום עלות הטיפול..."
                 placeholderTextColor="#999"
-                keyboardType="numeric"
+                keyboardType="number-pad"
                 value={cost}
                 onChangeText={setCost}
               />

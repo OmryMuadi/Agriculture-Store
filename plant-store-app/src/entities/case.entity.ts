@@ -26,6 +26,8 @@ const fetchCases = async (onUpdate: (cases: Case[]) => void) => {
     const { data, error } = await supabase
       .from("cases")
       .select(`*, case_fertilizers(fertilizer_id)`)
+      .order("case_date", { ascending: false })
+      .order("id", { ascending: false });
 
     if (error) throw error;
     // Normalize returned rows to include `fertilizer_ids` array
@@ -41,10 +43,9 @@ const fetchCases = async (onUpdate: (cases: Case[]) => void) => {
 
 // case_date and created_at are set by Supabase defaults — don't send them
 export const addCase = async (
-  caseData: Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution"> & { fertilizer_ids?: number[]; cost?: number }
+  caseData: Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cost"> & { fertilizer_ids?: number[] }
 ) => {
   const payload = { ...caseData };
-  // cost and other fields are allowed by DB defaults
   const { fertilizer_ids, ...caseFields } = payload as any;
 
   const { data, error } = await supabase
@@ -67,7 +68,7 @@ export const addCase = async (
 
 export const updateCase = async (
   id: number,
-  updates: Partial<Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution">> & { fertilizer_ids?: number[] }
+  updates: Partial<Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cost">> & { fertilizer_ids?: number[] }
 ) => {
   const { fertilizer_ids, ...caseFields } = updates as any;
 

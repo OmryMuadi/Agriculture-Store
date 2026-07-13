@@ -103,7 +103,7 @@ export default function DashboardScreen() {
               <Ionicons name="journal-outline" size={24} color="#2e7d32" />
             </View>
             <Text style={styles.statNumber}>{cases.length}</Text>
-            <Text style={styles.statLabel}>סה"כ טיפולים</Text>
+            <Text style={styles.statLabel}>{'סה"כ טיפולים'}</Text>
           </TouchableOpacity>
 
           {/* Total Clients */}
@@ -179,7 +179,7 @@ export default function DashboardScreen() {
         {todayCases.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="folder-open-outline" size={32} color="#78909c" />
-            <Text style={styles.emptyText}>עדיין לא נוספו טיפולים. לחץ על "טיפול חדש" כדי להתחיל.</Text>
+            <Text style={styles.emptyText}>{'עדיין לא נוספו טיפולים. לחץ על "טיפול חדש" כדי להתחיל.'}</Text>
           </View>
         ) : (
           <View style={styles.caseList}>
