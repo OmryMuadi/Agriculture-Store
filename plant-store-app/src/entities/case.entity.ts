@@ -1,11 +1,16 @@
 import { supabase } from "../config/superbase";
 
+export interface CaseFertilizerUsage {
+  fertilizer_id: number;
+  amount: number;
+}
+
 export interface Case {
   id: number;
   client_id: number;
   plant_id: number;
   disease_id: number;
-  fertilizer_ids?: number[]; // one case may have zero or many fertilizers
+  fertilizer_usages?: CaseFertilizerUsage[];
   solution: string;
   case_date: string;      // DATE → "YYYY-MM-DD" string from Supabase
   cost: number;
@@ -25,13 +30,18 @@ const fetchCases = async (onUpdate: (cases: Case[]) => void) => {
     // Include fertilizers via the join table
     const { data, error } = await supabase
       .from("cases")
-      .select(`*, case_fertilizers(fertilizer_id)`)
+      .select(`*, case_fertilizers(fertilizer_id, amount)`)
+      .order("case_date", { ascending: false })
+      .order("id", { ascending: false });
 
     if (error) throw error;
-    // Normalize returned rows to include `fertilizer_ids` array
+    // Normalize the join rows into the shape used by the case form and cards.
     const normalized = (data as any[]).map((r) => ({
       ...r,
-      fertilizer_ids: (r.case_fertilizers || []).map((cf: any) => cf.fertilizer_id),
+      fertilizer_usages: (r.case_fertilizers || []).map((cf: any) => ({
+        fertilizer_id: cf.fertilizer_id,
+        amount: Number(cf.amount),
+      })),
     }));
     onUpdate(normalized as Case[]);
   } catch (error) {
@@ -39,13 +49,12 @@ const fetchCases = async (onUpdate: (cases: Case[]) => void) => {
   }
 };
 
-// case_date and created_at are set by Supabase defaults — don't send them
+// case_date is set by the Supabase CURRENT_DATE default.
 export const addCase = async (
-  caseData: Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution"> & { fertilizer_ids?: number[]; cost?: number }
+  caseData: Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cost"> & { fertilizer_usages?: CaseFertilizerUsage[] }
 ) => {
   const payload = { ...caseData };
-  // cost and other fields are allowed by DB defaults
-  const { fertilizer_ids, ...caseFields } = payload as any;
+  const { fertilizer_usages, ...caseFields } = payload;
 
   const { data, error } = await supabase
     .from("cases")
@@ -56,8 +65,12 @@ export const addCase = async (
   if (error) throw error;
   const caseId = (data as Case).id;
 
-    if (fertilizer_ids && fertilizer_ids.length > 0) {
-    const inserts = fertilizer_ids.map((fid: number) => ({ case_id: caseId, fertilizer_id: fid }));
+  if (fertilizer_usages && fertilizer_usages.length > 0) {
+    const inserts = fertilizer_usages.map(({ fertilizer_id, amount }) => ({
+      case_id: caseId,
+      fertilizer_id,
+      amount,
+    }));
     const { error: insertErr } = await supabase.from("case_fertilizers").insert(inserts);
     if (insertErr) throw insertErr;
   }
@@ -67,9 +80,9 @@ export const addCase = async (
 
 export const updateCase = async (
   id: number,
-  updates: Partial<Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution">> & { fertilizer_ids?: number[] }
+  updates: Partial<Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cost">> & { fertilizer_usages?: CaseFertilizerUsage[] }
 ) => {
-  const { fertilizer_ids, ...caseFields } = updates as any;
+  const { fertilizer_usages, ...caseFields } = updates;
 
   if (Object.keys(caseFields).length > 0) {
     const { error } = await supabase.from("cases").update(caseFields).eq("id", id);
@@ -77,12 +90,16 @@ export const updateCase = async (
   }
 
   // Sync fertilizers: remove existing and insert new ones if provided
-  if (fertilizer_ids) {
+  if (fertilizer_usages) {
     const { error: delErr } = await supabase.from("case_fertilizers").delete().eq("case_id", id);
     if (delErr) throw delErr;
 
-    if (fertilizer_ids.length > 0) {
-      const inserts = fertilizer_ids.map((fid: number) => ({ case_id: id, fertilizer_id: fid }));
+    if (fertilizer_usages.length > 0) {
+      const inserts = fertilizer_usages.map(({ fertilizer_id, amount }) => ({
+        case_id: id,
+        fertilizer_id,
+        amount,
+      }));
       const { error: insErr } = await supabase.from("case_fertilizers").insert(inserts);
       if (insErr) throw insErr;
     }

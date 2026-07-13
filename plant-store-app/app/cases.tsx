@@ -39,7 +39,7 @@ export default function CasesScreen() {
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedPlantId, setSelectedPlantId] = useState<number | null>(null);
   const [selectedDiseaseId, setSelectedDiseaseId] = useState<number | null>(null);
-  const [selectedFertilizerIds, setSelectedFertilizerIds] = useState<number[]>([]);
+  const [selectedFertilizerAmounts, setSelectedFertilizerAmounts] = useState<Record<number, string>>({});
   const [solution, setSolution] = useState("");
   const [cost, setCost] = useState("");
 
@@ -87,7 +87,7 @@ export default function CasesScreen() {
     setSelectedClientId(null);
     setSelectedPlantId(null);
     setSelectedDiseaseId(null);
-    setSelectedFertilizerIds([]);
+    setSelectedFertilizerAmounts({});
     setSolution("");
     setCost("");
     setModalVisible(true);
@@ -98,7 +98,14 @@ export default function CasesScreen() {
     setSelectedClientId(c.client_id);
     setSelectedPlantId(c.plant_id);
     setSelectedDiseaseId(c.disease_id);
-    setSelectedFertilizerIds(c.fertilizer_ids ?? []);
+    setSelectedFertilizerAmounts(
+      Object.fromEntries(
+        (c.fertilizer_usages ?? []).map(({ fertilizer_id, amount }) => [
+          fertilizer_id,
+          String(amount),
+        ])
+      )
+    );
     setSolution(c.solution || "");
     setCost(c.cost.toString() || "");
     setModalVisible(true);
@@ -110,15 +117,41 @@ export default function CasesScreen() {
       return;
     }
 
+    const trimmedSolution = solution.trim();
+    if (!trimmedSolution) {
+      Alert.alert("שגיאה", "יש להזין תיאור לפתרון.");
+      return;
+    }
+
+    const trimmedCost = cost.trim();
+    const parsedCost = Number(trimmedCost);
+    if (!/^\d+$/.test(trimmedCost) || !Number.isSafeInteger(parsedCost) || parsedCost <= 0) {
+      Alert.alert("שגיאה", "יש להזין עלות חיובית במספרים שלמים.");
+      return;
+    }
+
+    const fertilizerUsages = Object.entries(selectedFertilizerAmounts).map(
+      ([fertilizerId, amount]) => ({
+        fertilizer_id: Number(fertilizerId),
+        amount: Number(amount.trim().replace(",", ".")),
+      })
+    );
+    const hasInvalidFertilizerAmount = fertilizerUsages.some(
+      ({ amount }) => !Number.isFinite(amount) || amount <= 0
+    );
+    if (hasInvalidFertilizerAmount) {
+      Alert.alert("שגיאה", "יש להזין כמות חיובית לכל דשן שנבחר.");
+      return;
+    }
+
     const caseData = {
       client_id: selectedClientId,
       plant_id: selectedPlantId,
       disease_id: selectedDiseaseId,
-      // always send the array (may be empty) so updateCase can remove existing fertilizers
-      fertilizer_ids: selectedFertilizerIds,
-      solution: solution.trim(),
-      case_date: new Date().toISOString().split("T")[0],
-      cost: Number(cost) || 0,
+      // Always send the array so editing can also remove all fertilizers.
+      fertilizer_usages: fertilizerUsages,
+      solution: trimmedSolution,
+      cost: parsedCost,
     };
 
     try {
@@ -213,10 +246,15 @@ export default function CasesScreen() {
     if (selectorType === "plant") setSelectedPlantId(id);
     if (selectorType === "disease") setSelectedDiseaseId(id);
     if (selectorType === "fertilizer") {
-      // toggle selection
-      setSelectedFertilizerIds((prev) =>
-        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-      );
+      setSelectedFertilizerAmounts((previous) => {
+        const next = { ...previous };
+        if (Object.prototype.hasOwnProperty.call(next, id)) {
+          delete next[id];
+        } else {
+          next[id] = "";
+        }
+        return next;
+      });
       return;
     }
     setSelectorVisible(false);
@@ -227,7 +265,10 @@ export default function CasesScreen() {
     const clientName = getClientName(c.client_id).toLowerCase();
     const plantName = getPlantName(c.plant_id).toLowerCase();
     const diseaseName = getDiseaseName(c.disease_id).toLowerCase();
-    const fertilizerName = c.fertilizer_ids && c.fertilizer_ids.length > 0 ? c.fertilizer_ids.map(getFertilizerName).join(" ").toLowerCase() : "";
+    const fertilizerName = (c.fertilizer_usages ?? [])
+      .map(({ fertilizer_id }) => getFertilizerName(fertilizer_id))
+      .join(" ")
+      .toLowerCase();
     const query = searchQuery.toLowerCase();
     return (
       clientName.includes(query) ||
@@ -331,12 +372,14 @@ export default function CasesScreen() {
                 </View>
               </View>
 
-              {item.fertilizer_ids && item.fertilizer_ids.length > 0 ? (
+              {item.fertilizer_usages && item.fertilizer_usages.length > 0 ? (
                 <View style={styles.fertilizerRow}>
                   <View style={styles.fertilizerChipsContainer}>
-                    {item.fertilizer_ids.map((fid) => (
-                      <View key={fid} style={styles.fertilizerChip}>
-                        <Text style={styles.fertilizerChipText}>{getFertilizerName(fid)}</Text>
+                    {item.fertilizer_usages.map(({ fertilizer_id, amount }) => (
+                      <View key={fertilizer_id} style={styles.fertilizerChip}>
+                        <Text style={styles.fertilizerChipText}>
+                          {getFertilizerName(fertilizer_id)}: {amount} גרם
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -432,12 +475,49 @@ export default function CasesScreen() {
               >
                 <Text style={[
                   styles.selectButtonText, 
-                  selectedFertilizerIds.length > 0 ? { color: "#333" } : { color: "#999" }
+                  Object.keys(selectedFertilizerAmounts).length > 0 ? { color: "#333" } : { color: "#999" }
                 ]}>
-                  {selectedFertilizerIds.length > 0 ? selectedFertilizerIds.map(getFertilizerName).join(", ") : "תבחר דשן..."}
+                  {Object.keys(selectedFertilizerAmounts).length > 0
+                    ? Object.keys(selectedFertilizerAmounts).map(Number).map(getFertilizerName).join(", ")
+                    : "תבחר דשן..."}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
+
+              {Object.entries(selectedFertilizerAmounts).map(([fertilizerId, amount]) => {
+                const id = Number(fertilizerId);
+                return (
+                  <View key={id} style={styles.fertilizerAmountRow}>
+                    <TouchableOpacity
+                      style={styles.removeFertilizerButton}
+                      onPress={() =>
+                        setSelectedFertilizerAmounts((previous) => {
+                          const next = { ...previous };
+                          delete next[id];
+                          return next;
+                        })
+                      }
+                      accessibilityLabel={`הסר ${getFertilizerName(id)}`}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#c62828" />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.fertilizerAmountInput]}
+                      placeholder="כמות"
+                      placeholderTextColor="#999"
+                      keyboardType="decimal-pad"
+                      value={amount}
+                      onChangeText={(value) =>
+                        setSelectedFertilizerAmounts((previous) => ({
+                          ...previous,
+                          [id]: value,
+                        }))
+                      }
+                    />
+                    <Text style={styles.fertilizerAmountName}>{getFertilizerName(id)}</Text>
+                  </View>
+                );
+              })}
 
               {/* Disease Selection */}
               <Text style={styles.label}>מחלה</Text>
@@ -471,7 +551,7 @@ export default function CasesScreen() {
                 style={[styles.input, styles.costInput]}
                 placeholder="רשום עלות הטיפול..."
                 placeholderTextColor="#999"
-                keyboardType="numeric"
+                keyboardType="number-pad"
                 value={cost}
                 onChangeText={setCost}
               />
@@ -531,7 +611,7 @@ export default function CasesScreen() {
                         >
                           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
                             <Text style={styles.selectorItemText}>{item.label}</Text>
-                            {selectorType === "fertilizer" && selectedFertilizerIds.includes(item.id) ? (
+                            {selectorType === "fertilizer" && Object.prototype.hasOwnProperty.call(selectedFertilizerAmounts, item.id) ? (
                               <Ionicons name="checkmark" size={18} color="#2e7d32" />
                             ) : null}
                           </View>
@@ -913,6 +993,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 8,
     width: "100%",
+  },
+  fertilizerAmountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  fertilizerAmountName: {
+    flex: 1,
+    color: "#333",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  fertilizerAmountInput: {
+    width: 110,
+    height: 44,
+    paddingVertical: 8,
+  },
+  removeFertilizerButton: {
+    padding: 4,
   },
   costInput: {
     fontSize: 15,
