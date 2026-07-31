@@ -18,16 +18,24 @@ import {
 import { addCase, Case, deleteCase, subscribeToCases, updateCase } from "../src/entities/case.entity";
 import { Client, subscribeToClients } from "../src/entities/client.entity";
 import { Disease, subscribeToDiseases } from "../src/entities/disease.entity";
+import { Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
+import { Pesticide, subscribeToPesticides } from "../src/entities/pesticide.entity";
 import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
+import { exportCasePdf } from "../src/services/casePdf";
+
+type SelectorType = "client" | "plant" | "disease" | "fertilizer" | "pesticide";
 
 export default function CasesScreen() {
   const params = useLocalSearchParams();
   const [clients, setClients] = useState<Client[]>([]);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
+  const [pesticides, setPesticides] = useState<Pesticide[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [exportingCaseId, setExportingCaseId] = useState<number | null>(null);
 
   // Case Modal States
   const [modalVisible, setModalVisible] = useState(false);
@@ -37,12 +45,14 @@ export default function CasesScreen() {
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedPlantId, setSelectedPlantId] = useState<number | null>(null);
   const [selectedDiseaseId, setSelectedDiseaseId] = useState<number | null>(null);
+  const [selectedFertilizerAmounts, setSelectedFertilizerAmounts] = useState<Record<number, string>>({});
+  const [selectedPesticideAmounts, setSelectedPesticideAmounts] = useState<Record<number, string>>({});
   const [solution, setSolution] = useState("");
   const [cost, setCost] = useState("");
 
   // Selector Modal States (Nested)
   const [selectorVisible, setSelectorVisible] = useState(false);
-  const [selectorType, setSelectorType] = useState<"client" | "plant" | "disease">("client");
+  const [selectorType, setSelectorType] = useState<SelectorType>("client");
   const [selectorSearch, setSelectorSearch] = useState("");
 
   // Common base type for selector list items
@@ -53,6 +63,8 @@ export default function CasesScreen() {
     const unsubClients = subscribeToClients(setClients);
     const unsubPlants = subscribeToPlants(setPlants);
     const unsubDiseases = subscribeToDiseases(setDiseases);
+    const unsubFertilizers = subscribeToFertilizers(setFertilizers);
+    const unsubPesticides = subscribeToPesticides(setPesticides);
     const unsubCases = subscribeToCases((casesList) => {
       setCases(casesList);
       setLoading(false);
@@ -62,6 +74,8 @@ export default function CasesScreen() {
       unsubClients();
       unsubPlants();
       unsubDiseases();
+      unsubFertilizers();
+      unsubPesticides();
       unsubCases();
     };
   }, []);
@@ -82,6 +96,8 @@ export default function CasesScreen() {
     setSelectedClientId(null);
     setSelectedPlantId(null);
     setSelectedDiseaseId(null);
+    setSelectedFertilizerAmounts({});
+    setSelectedPesticideAmounts({});
     setSolution("");
     setCost("");
     setModalVisible(true);
@@ -92,6 +108,22 @@ export default function CasesScreen() {
     setSelectedClientId(c.client_id);
     setSelectedPlantId(c.plant_id);
     setSelectedDiseaseId(c.disease_id);
+    setSelectedFertilizerAmounts(
+      Object.fromEntries(
+        (c.fertilizer_usages ?? []).map(({ fertilizer_id, amount }) => [
+          fertilizer_id,
+          String(amount),
+        ])
+      )
+    );
+    setSelectedPesticideAmounts(
+      Object.fromEntries(
+        (c.pesticide_usages ?? []).map(({ pesticide_id, amount }) => [
+          pesticide_id,
+          String(amount),
+        ])
+      )
+    );
     setSolution(c.solution || "");
     setCost(c.cost.toString() || "");
     setModalVisible(true);
@@ -103,13 +135,56 @@ export default function CasesScreen() {
       return;
     }
 
+    const trimmedSolution = solution.trim();
+    if (!trimmedSolution) {
+      Alert.alert("שגיאה", "יש להזין תיאור לפתרון.");
+      return;
+    }
+
+    const trimmedCost = cost.trim();
+    const parsedCost = Number(trimmedCost);
+    if (!/^\d+$/.test(trimmedCost) || !Number.isSafeInteger(parsedCost) || parsedCost <= 0) {
+      Alert.alert("שגיאה", "יש להזין עלות חיובית במספרים שלמים.");
+      return;
+    }
+
+    const fertilizerUsages = Object.entries(selectedFertilizerAmounts).map(
+      ([fertilizerId, amount]) => ({
+        fertilizer_id: Number(fertilizerId),
+        amount: Number(amount.trim().replace(",", ".")),
+      })
+    );
+    const hasInvalidFertilizerAmount = fertilizerUsages.some(
+      ({ amount }) => !Number.isFinite(amount) || amount <= 0
+    );
+    if (hasInvalidFertilizerAmount) {
+      Alert.alert("שגיאה", "יש להזין כמות חיובית לכל דשן שנבחר.");
+      return;
+    }
+
+    const pesticideUsages = Object.entries(selectedPesticideAmounts).map(
+      ([pesticideId, amount]) => ({
+        pesticide_id: Number(pesticideId),
+        amount: Number(amount.trim().replace(",", ".")),
+      })
+    );
+    const hasInvalidPesticideAmount = pesticideUsages.some(
+      ({ amount }) => !Number.isFinite(amount) || amount <= 0
+    );
+    if (hasInvalidPesticideAmount) {
+      Alert.alert("שגיאה", "יש להזין כמות חיובית לכל חומר הדברה שנבחר.");
+      return;
+    }
+
     const caseData = {
       client_id: selectedClientId,
       plant_id: selectedPlantId,
       disease_id: selectedDiseaseId,
-      solution: solution.trim(),
-      case_date: new Date().toISOString().split("T")[0],
-      cost: Number(cost) || 0,
+      // Always send the array so editing can also remove all fertilizers.
+      fertilizer_usages: fertilizerUsages,
+      pesticide_usages: pesticideUsages,
+      solution: trimmedSolution,
+      cost: parsedCost,
     };
 
     try {
@@ -143,6 +218,36 @@ export default function CasesScreen() {
         }
       ]
     );
+  };
+
+  const handleExportPdf = async (c: Case) => {
+    setExportingCaseId(c.id);
+
+    try {
+      await exportCasePdf({
+        caseId: c.id,
+        caseDate: c.case_date,
+        clientName: getClientName(c.client_id),
+        clientPhone: getClientPhone(c.client_id),
+        clientVillage: getClientVillage(c.client_id),
+        plantName: getPlantName(c.plant_id),
+        diseaseName: getDiseaseName(c.disease_id),
+        fertilizers: (c.fertilizer_usages ?? []).map(({ fertilizer_id, amount }) => ({
+          name: getFertilizerName(fertilizer_id),
+          amount,
+        })),
+        pesticides: (c.pesticide_usages ?? []).map(({ pesticide_id, amount }) => ({
+          name: getPesticideName(pesticide_id),
+          amount,
+        })),
+        solution: c.solution,
+        cost: c.cost,
+      });
+    } catch (error) {
+      Alert.alert("שגיאה", error instanceof Error ? error.message : "יצירת קובץ ה-PDF נכשלה.");
+    } finally {
+      setExportingCaseId(null);
+    }
   };
 
   const formatCaseDate = (dateString: string) => {
@@ -187,8 +292,18 @@ export default function CasesScreen() {
     return disease ? disease.name : "מחלה לא ידועה";
   };
 
+  const getFertilizerName = (id: number) => {
+    const fertilizer = fertilizers.find((f) => f.id === id);
+    return fertilizer ? fertilizer.name : "דשן לא ידוע";
+  };
+
+  const getPesticideName = (id: number) => {
+    const pesticide = pesticides.find((p) => p.id === id);
+    return pesticide ? pesticide.name : "חומר הדברה לא ידוע";
+  };
+
   // Selector helpers
-  const openSelector = (type: "client" | "plant" | "disease") => {
+  const openSelector = (type: SelectorType) => {
     setSelectorType(type);
     setSelectorSearch("");
     setSelectorVisible(true);
@@ -198,6 +313,30 @@ export default function CasesScreen() {
     if (selectorType === "client") setSelectedClientId(id);
     if (selectorType === "plant") setSelectedPlantId(id);
     if (selectorType === "disease") setSelectedDiseaseId(id);
+    if (selectorType === "fertilizer") {
+      setSelectedFertilizerAmounts((previous) => {
+        const next = { ...previous };
+        if (Object.prototype.hasOwnProperty.call(next, id)) {
+          delete next[id];
+        } else {
+          next[id] = "";
+        }
+        return next;
+      });
+      return;
+    }
+    if (selectorType === "pesticide") {
+      setSelectedPesticideAmounts((previous) => {
+        const next = { ...previous };
+        if (Object.prototype.hasOwnProperty.call(next, id)) {
+          delete next[id];
+        } else {
+          next[id] = "";
+        }
+        return next;
+      });
+      return;
+    }
     setSelectorVisible(false);
   };
 
@@ -206,8 +345,22 @@ export default function CasesScreen() {
     const clientName = getClientName(c.client_id).toLowerCase();
     const plantName = getPlantName(c.plant_id).toLowerCase();
     const diseaseName = getDiseaseName(c.disease_id).toLowerCase();
+    const fertilizerName = (c.fertilizer_usages ?? [])
+      .map(({ fertilizer_id }) => getFertilizerName(fertilizer_id))
+      .join(" ")
+      .toLowerCase();
+    const pesticideName = (c.pesticide_usages ?? [])
+      .map(({ pesticide_id }) => getPesticideName(pesticide_id))
+      .join(" ")
+      .toLowerCase();
     const query = searchQuery.toLowerCase();
-    return clientName.includes(query) || plantName.includes(query) || diseaseName.includes(query);
+    return (
+      clientName.includes(query) ||
+      plantName.includes(query) ||
+      diseaseName.includes(query) ||
+      fertilizerName.includes(query) ||
+      pesticideName.includes(query)
+    );
   });
 
   // Build normalized selector items
@@ -230,6 +383,16 @@ export default function CasesScreen() {
       return diseases
         .filter(d => d.name.toLowerCase().includes(query))
         .map(d => ({ id: d.id, label: d.name }));
+    }
+    if (selectorType === "fertilizer") {
+      return fertilizers
+        .filter(f => f.name.toLowerCase().includes(query))
+        .map(f => ({ id: f.id, label: f.name }));
+    }
+    if (selectorType === "pesticide") {
+      return pesticides
+        .filter(p => p.name.toLowerCase().includes(query))
+        .map(p => ({ id: p.id, label: p.name }));
     }
     return [];
   };
@@ -299,6 +462,34 @@ export default function CasesScreen() {
                 </View>
               </View>
 
+              {item.fertilizer_usages && item.fertilizer_usages.length > 0 ? (
+                <View style={styles.fertilizerRow}>
+                  <View style={styles.fertilizerChipsContainer}>
+                    {item.fertilizer_usages.map(({ fertilizer_id, amount }) => (
+                      <View key={fertilizer_id} style={styles.fertilizerChip}>
+                        <Text style={styles.fertilizerChipText}>
+                          {getFertilizerName(fertilizer_id)}: {amount} גרם
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              {item.pesticide_usages && item.pesticide_usages.length > 0 ? (
+                <View style={styles.fertilizerRow}>
+                  <View style={styles.fertilizerChipsContainer}>
+                    {item.pesticide_usages.map(({ pesticide_id, amount }) => (
+                      <View key={pesticide_id} style={styles.pesticideChip}>
+                        <Text style={styles.pesticideChipText}>
+                          {getPesticideName(pesticide_id)}: {amount} גרם
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
               <View style={styles.solutionBox}>
                 <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
                 <Text style={styles.solutionBody}>{item.solution}</Text>
@@ -310,6 +501,18 @@ export default function CasesScreen() {
 
               {/* Actions row */}
               <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, exportingCaseId === item.id && styles.actionBtnDisabled]}
+                  onPress={() => handleExportPdf(item)}
+                  disabled={exportingCaseId !== null}
+                >
+                  {exportingCaseId === item.id ? (
+                    <ActivityIndicator size="small" color="#1565c0" />
+                  ) : (
+                    <Ionicons name="document-text-outline" size={16} color="#1565c0" />
+                  )}
+                  <Text style={[styles.actionBtnText, { color: "#1565c0" }]}>הורד PDF</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => openEditModal(item)}>
                   <Ionicons name="pencil" size={15} color="#2e7d32" />
                   <Text style={[styles.actionBtnText, { color: "#2e7d32" }]}>ערוך</Text>
@@ -381,6 +584,108 @@ export default function CasesScreen() {
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
 
+              <Text style={styles.label}>דשן (אופציונלי)</Text>
+              <TouchableOpacity 
+                style={styles.selectButton} 
+                onPress={() => openSelector("fertilizer")}
+              >
+                <Text style={[
+                  styles.selectButtonText, 
+                  Object.keys(selectedFertilizerAmounts).length > 0 ? { color: "#333" } : { color: "#999" }
+                ]}>
+                  {Object.keys(selectedFertilizerAmounts).length > 0
+                    ? Object.keys(selectedFertilizerAmounts).map(Number).map(getFertilizerName).join(", ")
+                    : "תבחר דשן..."}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#666" />
+              </TouchableOpacity>
+
+              {Object.entries(selectedFertilizerAmounts).map(([fertilizerId, amount]) => {
+                const id = Number(fertilizerId);
+                return (
+                  <View key={id} style={styles.fertilizerAmountRow}>
+                    <TouchableOpacity
+                      style={styles.removeFertilizerButton}
+                      onPress={() =>
+                        setSelectedFertilizerAmounts((previous) => {
+                          const next = { ...previous };
+                          delete next[id];
+                          return next;
+                        })
+                      }
+                      accessibilityLabel={`הסר ${getFertilizerName(id)}`}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#c62828" />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.fertilizerAmountInput]}
+                      placeholder="כמות"
+                      placeholderTextColor="#999"
+                      keyboardType="decimal-pad"
+                      value={amount}
+                      onChangeText={(value) =>
+                        setSelectedFertilizerAmounts((previous) => ({
+                          ...previous,
+                          [id]: value,
+                        }))
+                      }
+                    />
+                    <Text style={styles.fertilizerAmountName}>{getFertilizerName(id)}</Text>
+                  </View>
+                );
+              })}
+
+              <Text style={styles.label}>חומרי הדברה (אופציונלי)</Text>
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => openSelector("pesticide")}
+              >
+                <Text style={[
+                  styles.selectButtonText,
+                  Object.keys(selectedPesticideAmounts).length > 0 ? { color: "#333" } : { color: "#999" },
+                ]}>
+                  {Object.keys(selectedPesticideAmounts).length > 0
+                    ? Object.keys(selectedPesticideAmounts).map(Number).map(getPesticideName).join(", ")
+                    : "תבחר חומרי הדברה..."}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#666" />
+              </TouchableOpacity>
+
+              {Object.entries(selectedPesticideAmounts).map(([pesticideId, amount]) => {
+                const id = Number(pesticideId);
+                return (
+                  <View key={id} style={styles.fertilizerAmountRow}>
+                    <TouchableOpacity
+                      style={styles.removeFertilizerButton}
+                      onPress={() =>
+                        setSelectedPesticideAmounts((previous) => {
+                          const next = { ...previous };
+                          delete next[id];
+                          return next;
+                        })
+                      }
+                      accessibilityLabel={`הסר ${getPesticideName(id)}`}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#c62828" />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[styles.input, styles.fertilizerAmountInput]}
+                      placeholder="כמות בגרם"
+                      placeholderTextColor="#999"
+                      keyboardType="decimal-pad"
+                      value={amount}
+                      onChangeText={(value) =>
+                        setSelectedPesticideAmounts((previous) => ({
+                          ...previous,
+                          [id]: value,
+                        }))
+                      }
+                    />
+                    <Text style={styles.fertilizerAmountName}>{getPesticideName(id)}</Text>
+                  </View>
+                );
+              })}
+
               {/* Disease Selection */}
               <Text style={styles.label}>מחלה</Text>
               <TouchableOpacity 
@@ -410,10 +715,10 @@ export default function CasesScreen() {
 
               <Text style={styles.label}>עלות</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.costInput]}
                 placeholder="רשום עלות הטיפול..."
                 placeholderTextColor="#999"
-                keyboardType="numeric"
+                keyboardType="number-pad"
                 value={cost}
                 onChangeText={setCost}
               />
@@ -432,6 +737,10 @@ export default function CasesScreen() {
                         ? "בחר לקוח"
                         : selectorType === "plant"
                         ? "בחר גידול"
+                        : selectorType === "fertilizer"
+                        ? "בחר דשן"
+                        : selectorType === "pesticide"
+                        ? "בחר חומרי הדברה"
                         : "בחר מחלה"}
                     </Text>
                     <TouchableOpacity onPress={() => setSelectorVisible(false)}>
@@ -446,6 +755,10 @@ export default function CasesScreen() {
                         ? "חפש לקוח..."
                         : selectorType === "plant"
                         ? "חפש גידול..."
+                        : selectorType === "fertilizer"
+                        ? "חפש דשן..."
+                        : selectorType === "pesticide"
+                        ? "חפש חומר הדברה..."
                         : "חפש מחלה..."
                     }
                     value={selectorSearch}
@@ -455,7 +768,7 @@ export default function CasesScreen() {
                   {getFilteredSelectorData().length === 0 ? (
                     <View style={styles.selectorEmpty}>
                       <Text style={styles.selectorEmptyText}>לא נמצאו פריטים.</Text>
-                      <Text style={styles.selectorEmptySub}>הוסף אותם קודם בלשונית Directory.</Text>
+                      <Text style={styles.selectorEmptySub}>הוסף אותם קודם בלשונית למאגר נתונים.</Text>
                     </View>
                   ) : (
                     <FlatList<SelectorItem>
@@ -467,7 +780,14 @@ export default function CasesScreen() {
                           style={styles.selectorItem}
                           onPress={() => handleSelectValue(item.id)}
                         >
-                          <Text style={styles.selectorItemText}>{item.label}</Text>
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                            <Text style={styles.selectorItemText}>{item.label}</Text>
+                            {selectorType === "fertilizer" && Object.prototype.hasOwnProperty.call(selectedFertilizerAmounts, item.id) ? (
+                              <Ionicons name="checkmark" size={18} color="#2e7d32" />
+                            ) : selectorType === "pesticide" && Object.prototype.hasOwnProperty.call(selectedPesticideAmounts, item.id) ? (
+                              <Ionicons name="checkmark" size={18} color="#2e7d32" />
+                            ) : null}
+                          </View>
                         </TouchableOpacity>
                       )}
                     />
@@ -576,6 +896,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  infoPillBlue: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  infoPillTextBlue: {
+    color: "#1565c0",
+    fontSize: 12,
+    fontWeight: "600",
+  },
   infoPillRed: {
     backgroundColor: "#ffebee",
     paddingHorizontal: 10,
@@ -624,6 +956,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginLeft: 4,
+  },
+  actionBtnDisabled: {
+    opacity: 0.6,
   },
   emptyContainer: {
     flex: 1,
@@ -753,7 +1088,7 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
   selectorHeader: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
@@ -762,6 +1097,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textTransform: "capitalize",
+    textAlign: "right",
   },
   selectorSearch: {
     borderWidth: 1,
@@ -769,6 +1105,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     height: 40,
     paddingHorizontal: 10,
+    textAlign: "right",
     marginBottom: 12,
   },
   selectorList: {
@@ -782,6 +1119,7 @@ const styles = StyleSheet.create({
   selectorItemText: {
     fontSize: 15,
     color: "#333",
+    textAlign: "right",
   },
   selectorEmpty: {
     paddingVertical: 20,
@@ -791,11 +1129,87 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     fontWeight: "500",
+    textAlign: "right",
   },
   selectorEmptySub: {
     fontSize: 12,
     color: "#999",
     marginTop: 4,
+    textAlign: "right",
+  },
+  fertilizerChipsContainer: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    alignItems: "center",
+    width: "100%",
+  },
+  fertilizerChip: {
+    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+    marginBottom: 4,
+  },
+  fertilizerChipText: {
+    color: "#1565c0",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  pesticideChip: {
+    backgroundColor: "#fff3e0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+    marginBottom: 4,
+  },
+  pesticideChipText: {
+    color: "#e65100",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  fertilizerMoreChip: {
+    backgroundColor: "#cfd8dc",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+    marginBottom: 4,
+  },
+  fertilizerRow: {
+    marginTop: 8,
+    marginBottom: 8,
+    width: "100%",
+  },
+  fertilizerAmountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  fertilizerAmountName: {
+    flex: 1,
+    color: "#333",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  fertilizerAmountInput: {
+    width: 110,
+    height: 44,
+    paddingVertical: 8,
+  },
+  removeFertilizerButton: {
+    padding: 4,
+  },
+  costInput: {
+    fontSize: 15,
+    paddingVertical: 10,
+    textAlign: "right",
+    height: 56,
   },
   costText: {
     marginTop: 8,
