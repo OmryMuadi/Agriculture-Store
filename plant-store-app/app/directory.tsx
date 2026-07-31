@@ -18,10 +18,11 @@ import {
 import { addClient, Client, deleteClient, subscribeToClients, updateClient } from "../src/entities/client.entity";
 import { addDisease, deleteDisease, Disease, subscribeToDiseases } from "../src/entities/disease.entity";
 import { addFertilizer, deleteFertilizer, Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
+import { addPesticide, deletePesticide, Pesticide, subscribeToPesticides } from "../src/entities/pesticide.entity";
 import { addPlant, deletePlant, Plant, subscribeToPlants } from "../src/entities/plant.entity";
 import { CityDropdownItem, fetchIsraelCities } from "../src/services/israelCities";
 
-type ActiveTab = "clients" | "plants" | "diseases" | "fertilizers";
+type ActiveTab = "clients" | "plants" | "diseases" | "fertilizers" | "pesticides";
 
 export default function DirectoryScreen() {
   const params = useLocalSearchParams();
@@ -34,6 +35,7 @@ export default function DirectoryScreen() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [diseases, setDiseases] = useState<Disease[]>([]);
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
+  const [pesticides, setPesticides] = useState<Pesticide[]>([]);
 
   // Add/Edit Client Modal
   const [clientModalVisible, setClientModalVisible] = useState(false);
@@ -61,12 +63,14 @@ export default function DirectoryScreen() {
       setLoading(false);
     });
     const unsubFertilizers = subscribeToFertilizers(setFertilizers);
+    const unsubPesticides = subscribeToPesticides(setPesticides);
 
     return () => {
       unsubClients();
       unsubPlants();
       unsubDiseases();
       unsubFertilizers();
+      unsubPesticides();
     };
   }, []);
 
@@ -101,7 +105,7 @@ export default function DirectoryScreen() {
 
   // Listen to router params to switch tab or trigger action
   useEffect(() => {
-    if (params.tab === "clients" || params.tab === "plants" || params.tab === "diseases" || params.tab === "fertilizers") {
+    if (params.tab === "clients" || params.tab === "plants" || params.tab === "diseases" || params.tab === "fertilizers" || params.tab === "pesticides") {
       setActiveTab(params.tab as ActiveTab);
       router.setParams({ tab: undefined });
     }
@@ -206,6 +210,8 @@ export default function DirectoryScreen() {
         await addDisease({ name: newItemName.trim() });
       } else if (activeTab === "fertilizers") {
         await addFertilizer({ name: newItemName.trim() });
+      } else if (activeTab === "pesticides") {
+        await addPesticide({ name: newItemName.trim() });
       }
       setNewItemName("");
     } catch (error) {
@@ -215,14 +221,16 @@ export default function DirectoryScreen() {
           ? "הוספת הגידול נכשלה. ייתכן שהוא כבר קיים."
           : activeTab === "diseases"
           ? "הוספת המחלה נכשלה. ייתכן שהיא כבר קיימת."
-          : "הוספת הדשן נכשלה. ייתכן שהוא כבר קיים."
+          : activeTab === "fertilizers"
+          ? "הוספת הדשן נכשלה. ייתכן שהוא כבר קיים."
+          : "הוספת חומר ההדברה נכשלה. ייתכן שהוא כבר קיים."
       );
     }
   };
 
-  const handleDeleteItem = (id: string, name: string, type: "plant" | "disease" | "fertilizer") => {
+  const handleDeleteItem = (id: string, name: string, type: "plant" | "disease" | "fertilizer" | "pesticide") => {
     Alert.alert(
-      `מחיקת ${type === "plant" ? "גידול" : type === "disease" ? "מחלה" : "דשן"}`,
+      `מחיקת ${type === "plant" ? "גידול" : type === "disease" ? "מחלה" : type === "fertilizer" ? "דשן" : "חומר הדברה"}`,
       `האם אתה בטוח שברצונך למחוק את "${name}"?`,
       [
         { text: "ביטול", style: "cancel" },
@@ -235,8 +243,10 @@ export default function DirectoryScreen() {
                 await deletePlant(Number(id));
               } else if (type === "disease") {
                 await deleteDisease(Number(id));
-              } else {
+              } else if (type === "fertilizer") {
                 await deleteFertilizer(Number(id));
+              } else {
+                await deletePesticide(Number(id));
               }
             } catch (error) {
               Alert.alert("שגיאה", "המחיקה נכשלה.");
@@ -248,7 +258,7 @@ export default function DirectoryScreen() {
   };
 
   // Searching filter
-  const getFilteredData = (): Client[] | Plant[] | Disease[] => {
+  const getFilteredData = (): Client[] | Plant[] | Disease[] | Fertilizer[] | Pesticide[] => {
     const query = searchQuery.toLowerCase();
     if (activeTab === "clients") {
       return clients.filter((c) => {
@@ -268,6 +278,9 @@ export default function DirectoryScreen() {
     }
     if (activeTab === "fertilizers") {
       return fertilizers.filter((f) => f.name.toLowerCase().includes(query));
+    }
+    if (activeTab === "pesticides") {
+      return pesticides.filter((p) => p.name.toLowerCase().includes(query));
     }
     return [];
   };
@@ -310,6 +323,12 @@ export default function DirectoryScreen() {
         >
           <Text style={[styles.tabText, activeTab === "fertilizers" && styles.activeTabText]}>דשנים</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "pesticides" && styles.activeTab]}
+          onPress={() => { setActiveTab("pesticides"); setSearchQuery(""); }}
+        >
+          <Text style={[styles.tabText, activeTab === "pesticides" && styles.activeTabText]}>הדברה</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Input */}
@@ -323,7 +342,9 @@ export default function DirectoryScreen() {
               ? "חפש גידול..."
               : activeTab === "diseases"
               ? "חפש מחלה..."
-              : "חפש דשן..."
+              : activeTab === "fertilizers"
+              ? "חפש דשן..."
+              : "חפש חומר הדברה..."
           }
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -341,7 +362,7 @@ export default function DirectoryScreen() {
       {filteredData.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons 
-            name={activeTab === "clients" ? "people-outline" : activeTab === "plants" ? "flower-outline" : activeTab === "diseases" ? "bug-outline" : "leaf-outline"} 
+            name={activeTab === "clients" ? "people-outline" : activeTab === "plants" ? "flower-outline" : activeTab === "diseases" ? "bug-outline" : activeTab === "fertilizers" ? "leaf-outline" : "shield-checkmark-outline"}
             size={64} 
             color="#ccc" 
           />
@@ -352,12 +373,14 @@ export default function DirectoryScreen() {
               ? "גידולים"
               : activeTab === "diseases"
               ? "מחלות"
-              : "דשנים"
+              : activeTab === "fertilizers"
+              ? "דשנים"
+              : "חומרי הדברה"
           }.</Text>
         </View>
       ) : (
         <FlatList
-          data={filteredData as Array<Client | Plant | Disease | Fertilizer>}
+          data={filteredData as (Client | Plant | Disease | Fertilizer | Pesticide)[]}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContainer}
           renderItem={({ item }) => {
@@ -383,12 +406,12 @@ export default function DirectoryScreen() {
                 </View>
               );
             } else {
-              const entry = item as unknown as Plant | Disease | Fertilizer;
+              const entry = item as Plant | Disease | Fertilizer | Pesticide;
               const label = entry.name;
               return (
                 <View style={styles.itemRow}>
                   <Text style={styles.itemRowText}>{label}</Text>
-                  <TouchableOpacity onPress={() => handleDeleteItem(String(entry.id), label, activeTab === "plants" ? "plant" : activeTab === "diseases" ? "disease" : "fertilizer") }>
+                  <TouchableOpacity onPress={() => handleDeleteItem(String(entry.id), label, activeTab === "plants" ? "plant" : activeTab === "diseases" ? "disease" : activeTab === "fertilizers" ? "fertilizer" : "pesticide") }>
                     <Ionicons name="trash-outline" size={18} color="#c62828" />
                   </TouchableOpacity>
                 </View>
@@ -535,7 +558,9 @@ export default function DirectoryScreen() {
                   ? "הוספת גידול"
                   : activeTab === "diseases"
                   ? "הוספת מחלה"
-                  : "הוספת דשן"}
+                  : activeTab === "fertilizers"
+                  ? "הוספת דשן"
+                  : "הוספת חומר הדברה"}
               </Text>
 
               <TouchableOpacity onPress={() => setItemModalVisible(false)}>
@@ -555,7 +580,9 @@ export default function DirectoryScreen() {
                     ? "שם הגידול"
                     : activeTab === "diseases"
                     ? "שם המחלה"
-                    : "שם הדשן"}
+                    : activeTab === "fertilizers"
+                    ? "שם הדשן"
+                    : "שם חומר ההדברה"}
                 </Text>
 
                 <TextInput

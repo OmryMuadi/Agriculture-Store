@@ -14,6 +14,7 @@ import { Case, subscribeToCases } from "../src/entities/case.entity";
 import { Client, subscribeToClients } from "../src/entities/client.entity";
 import { Disease, subscribeToDiseases } from "../src/entities/disease.entity";
 import { Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
+import { Pesticide, subscribeToPesticides } from "../src/entities/pesticide.entity";
 import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
 
 export default function DashboardScreen() {
@@ -21,6 +22,7 @@ export default function DashboardScreen() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [diseases, setDiseases] = useState<Disease[]>([]);
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
+  const [pesticides, setPesticides] = useState<Pesticide[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,6 +37,7 @@ export default function DashboardScreen() {
     const unsubPlants = subscribeToPlants(setPlants);
     const unsubDiseases = subscribeToDiseases(setDiseases);
     const unsubFertilizers = subscribeToFertilizers(setFertilizers);
+    const unsubPesticides = subscribeToPesticides(setPesticides);
     const unsubCases = subscribeToCases((casesList) => {
       setCases(casesList);
       setLoading(false);
@@ -45,6 +48,7 @@ export default function DashboardScreen() {
       unsubPlants();
       unsubDiseases();
       unsubFertilizers();
+      unsubPesticides();
       unsubCases();
     };
   }, []);
@@ -152,6 +156,18 @@ export default function DashboardScreen() {
             </View>
             <Text style={styles.statNumber}>{diseases.length}</Text>
             <Text style={styles.statLabel}>מחלות</Text>
+          </TouchableOpacity>
+
+          {/* Pesticides */}
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => router.push({ pathname: "/directory" as any, params: { tab: "pesticides" } })}
+          >
+            <View style={[styles.iconWrapper, { backgroundColor: "#fff3e0" }]}>
+              <Ionicons name="shield-checkmark-outline" size={24} color="#e65100" />
+            </View>
+            <Text style={styles.statNumber}>{pesticides.length}</Text>
+            <Text style={styles.statLabel}>חומרי הדברה</Text>
           </TouchableOpacity>
         </View>
 
@@ -281,15 +297,18 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: 24,
   },
   statCard: {
-    flex: 1,
+    flexBasis: "30%",
+    flexGrow: 1,
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
     marginHorizontal: 4,
+    marginBottom: 8,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
