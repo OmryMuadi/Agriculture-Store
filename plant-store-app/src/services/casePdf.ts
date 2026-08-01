@@ -18,6 +18,7 @@ export type CasePdfData = {
   fertilizers: CasePdfMaterial[];
   pesticides: CasePdfMaterial[];
   solution: string;
+  cultivationAreaM2?: number | null;
   cost: number;
 };
 
@@ -199,6 +200,14 @@ export const buildCasePdfHtml = (data: CasePdfData) => `
           <div class="field">
             <div class="field-label">מחלה</div>
             <div class="field-value">${escapeHtml(data.diseaseName)}</div>
+          </div>
+          <div class="field">
+            <div class="field-label">שטח גידול</div>
+            <div class="field-value">${
+              data.cultivationAreaM2 == null
+                ? "לא צוין"
+                : `${escapeHtml(data.cultivationAreaM2)} מ״ר`
+            }</div>
           </div>
         </div>
       </section>

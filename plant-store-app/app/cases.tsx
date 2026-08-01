@@ -48,6 +48,7 @@ export default function CasesScreen() {
   const [selectedFertilizerAmounts, setSelectedFertilizerAmounts] = useState<Record<number, string>>({});
   const [selectedPesticideAmounts, setSelectedPesticideAmounts] = useState<Record<number, string>>({});
   const [solution, setSolution] = useState("");
+  const [cultivationArea, setCultivationArea] = useState("");
   const [cost, setCost] = useState("");
 
   // Selector Modal States (Nested)
@@ -99,6 +100,7 @@ export default function CasesScreen() {
     setSelectedFertilizerAmounts({});
     setSelectedPesticideAmounts({});
     setSolution("");
+    setCultivationArea("");
     setCost("");
     setModalVisible(true);
   };
@@ -125,6 +127,7 @@ export default function CasesScreen() {
       )
     );
     setSolution(c.solution || "");
+    setCultivationArea(c.cultivation_area_m2 == null ? "" : String(c.cultivation_area_m2));
     setCost(c.cost.toString() || "");
     setModalVisible(true);
   };
@@ -176,6 +179,18 @@ export default function CasesScreen() {
       return;
     }
 
+    const trimmedCultivationArea = cultivationArea.trim();
+    const parsedCultivationArea = trimmedCultivationArea
+      ? Number(trimmedCultivationArea.replace(",", "."))
+      : null;
+    if (
+      parsedCultivationArea !== null &&
+      (!Number.isFinite(parsedCultivationArea) || parsedCultivationArea <= 0)
+    ) {
+      Alert.alert("שגיאה", "שטח הגידול חייב להיות מספר חיובי.");
+      return;
+    }
+
     const caseData = {
       client_id: selectedClientId,
       plant_id: selectedPlantId,
@@ -184,6 +199,7 @@ export default function CasesScreen() {
       fertilizer_usages: fertilizerUsages,
       pesticide_usages: pesticideUsages,
       solution: trimmedSolution,
+      cultivation_area_m2: parsedCultivationArea,
       cost: parsedCost,
     };
 
@@ -241,6 +257,7 @@ export default function CasesScreen() {
           amount,
         })),
         solution: c.solution,
+        cultivationAreaM2: c.cultivation_area_m2,
         cost: c.cost,
       });
     } catch (error) {
@@ -495,6 +512,12 @@ export default function CasesScreen() {
                 <Text style={styles.solutionBody}>{item.solution}</Text>
               </View>
 
+              {item.cultivation_area_m2 != null ? (
+                <Text style={styles.areaText}>
+                  שטח גידול: {item.cultivation_area_m2} מ״ר
+                </Text>
+              ) : null}
+              
               <Text style={styles.costText}>
                 עלות: ₪{item.cost}
               </Text>
@@ -711,6 +734,16 @@ export default function CasesScreen() {
                 numberOfLines={4}
                 value={solution}
                 onChangeText={setSolution}
+              />
+
+              <Text style={styles.label}>שטח גידול במ״ר (אופציונלי)</Text>
+              <TextInput
+                style={[styles.input, styles.costInput]}
+                placeholder="רשום שטח גידול..."
+                placeholderTextColor="#999"
+                keyboardType="decimal-pad"
+                value={cultivationArea}
+                onChangeText={setCultivationArea}
               />
 
               <Text style={styles.label}>עלות</Text>
@@ -1216,6 +1249,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#2e7d32",
+    textAlign: "right",
+  },
+  areaText: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#455a64",
     textAlign: "right",
   },
 });

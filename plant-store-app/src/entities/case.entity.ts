@@ -19,6 +19,7 @@ export interface Case {
   pesticide_usages?: CasePesticideUsage[];
   solution: string;
   case_date: string;      // DATE → "YYYY-MM-DD" string from Supabase
+  cultivation_area_m2: number | null;
   cost: number;
 }
 
@@ -61,7 +62,7 @@ const fetchCases = async (onUpdate: (cases: Case[]) => void) => {
 
 // case_date is set by the Supabase CURRENT_DATE default.
 export const addCase = async (
-  caseData: Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cost"> & {
+  caseData: Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cultivation_area_m2" | "cost"> & {
     fertilizer_usages?: CaseFertilizerUsage[];
     pesticide_usages?: CasePesticideUsage[];
   }
@@ -103,7 +104,7 @@ export const addCase = async (
 
 export const updateCase = async (
   id: number,
-  updates: Partial<Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cost">> & {
+  updates: Partial<Pick<Case, "client_id" | "plant_id" | "disease_id" | "solution" | "cultivation_area_m2" | "cost">> & {
     fertilizer_usages?: CaseFertilizerUsage[];
     pesticide_usages?: CasePesticideUsage[];
   }
