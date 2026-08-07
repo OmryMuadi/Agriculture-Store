@@ -18,12 +18,12 @@ export type CasePdfData = {
   clientPhone?: string;
   clientVillage?: string;
   plantName: string;
-  diseaseName: string;
+  diseaseName?: string | null;
   fertilizers: CasePdfMaterial[];
   pesticides: CasePdfMaterial[];
   solution?: string | null;
+  nextTreatmentRecommendations?: string | null;
   cultivationAreaM2?: number | null;
-  cost: number;
 };
 
 const escapeHtml = (value: string | number | null | undefined) =>
@@ -157,18 +157,6 @@ export const buildCasePdfHtml = (data: CasePdfData, logoSrc?: string) => `
         border-radius: 8px;
         background: #f6f8f6;
       }
-      .cost {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        border-radius: 12px;
-        color: #ffffff;
-        background: #37474f;
-        font-size: 17px;
-        font-weight: 700;
-      }
-      .cost-value { font-size: 22px; }
       .empty { padding: 10px; color: #78909c; background: #fafafa; border-radius: 8px; }
       .footer {
         margin-top: 10px;
@@ -223,7 +211,7 @@ export const buildCasePdfHtml = (data: CasePdfData, logoSrc?: string) => `
           </div>
           <div class="field">
             <div class="field-label">מחלה</div>
-            <div class="field-value">${escapeHtml(data.diseaseName)}</div>
+            <div class="field-value">${escapeHtml(data.diseaseName || "לא צוין")}</div>
           </div>
           <div class="field">
             <div class="field-label">שטח גידול</div>
@@ -244,9 +232,9 @@ export const buildCasePdfHtml = (data: CasePdfData, logoSrc?: string) => `
         <div class="solution">${escapeHtml(data.solution || "לא צוין")}</div>
       </section>
 
-      <section class="cost avoid-break">
-        <span>עלות הטיפול</span>
-        <span class="cost-value">${escapeHtml(data.cost)} &#8362;</span>
+      <section class="section avoid-break">
+        <h2>טיפול הבא / המלצות</h2>
+        <div class="solution">${escapeHtml(data.nextTreatmentRecommendations || "לא צוין")}</div>
       </section>
 
       <footer class="footer">מסמך זה הופק באמצעות מערכת אמא אדמה</footer>

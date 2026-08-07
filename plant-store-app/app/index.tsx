@@ -64,9 +64,9 @@ export default function DashboardScreen() {
     return plant ? plant.name : "גידול לא מוכר";
   };
 
-  const getDiseaseName = (id: number) => {
+  const getDiseaseName = (id: number | null) => {
     const disease = diseases.find((d) => d.id === id);
-    return disease ? disease.name : "מחלה לא מוכרת";
+    return disease ? disease.name : "ללא מחלה";
   };
 
   const getClientPhone = (id: number) => {
@@ -236,8 +236,10 @@ export default function DashboardScreen() {
                     <View style={styles.infoPillGreen}>
                       <Text style={styles.infoPillTextGreen}>{plantName}</Text>
                     </View>
-                    <View style={styles.infoPillRed}>
-                      <Text style={styles.infoPillTextRed}>{diseaseName}</Text>
+                    <View style={c.disease_id === null ? styles.infoPillNeutral : styles.infoPillRed}>
+                      <Text style={c.disease_id === null ? styles.infoPillTextNeutral : styles.infoPillTextRed}>
+                        {diseaseName}
+                      </Text>
                     </View>
                   </View>
 
@@ -246,6 +248,15 @@ export default function DashboardScreen() {
                       <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
                       <Text style={styles.solutionText} numberOfLines={2}>
                         {c.solution}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {c.next_treatment_recommendations ? (
+                    <View style={styles.solutionBox}>
+                      <Text style={styles.solutionTitle}>טיפול הבא / המלצות:</Text>
+                      <Text style={styles.solutionText} numberOfLines={2}>
+                        {c.next_treatment_recommendations}
                       </Text>
                     </View>
                   ) : null}
@@ -459,6 +470,17 @@ const styles = StyleSheet.create({
   },
   infoPillTextRed: {
     color: "#c62828",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  infoPillNeutral: {
+    backgroundColor: "#eceff1",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  infoPillTextNeutral: {
+    color: "#607d8b",
     fontSize: 12,
     fontWeight: "600",
   },
