@@ -247,8 +247,14 @@ export const exportCasePdf = async (data: CasePdfData) => {
   let logoSrc = logoAsset.uri;
 
   if (Platform.OS !== "web") {
-    await logoAsset.downloadAsync();
-    const logoFile = new File(logoAsset.localUri ?? logoAsset.uri);
+    // In release Android builds, a bundled image can resolve to a drawable
+    // resource name instead of an absolute file URI. Downloading a URI-backed
+    // Asset copies either form into the app cache so File can read it safely.
+    const readableLogoAsset = await Asset.fromURI(logoAsset.uri).downloadAsync();
+    if (!readableLogoAsset.localUri) {
+      throw new Error("לא ניתן לטעון את לוגו האפליקציה ל-PDF");
+    }
+    const logoFile = new File(readableLogoAsset.localUri);
     logoSrc = `data:image/png;base64,${await logoFile.base64()}`;
   }
 
