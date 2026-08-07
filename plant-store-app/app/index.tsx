@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  I18nManager,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,9 @@ import { Disease, subscribeToDiseases } from "../src/entities/disease.entity";
 import { Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
 import { Pesticide, subscribeToPesticides } from "../src/entities/pesticide.entity";
 import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
+
+const rtlRowDirection: "row" | "row-reverse" = I18nManager.isRTL ? "row" : "row-reverse";
+const rtlTextAlign: "left" | "right" = I18nManager.isRTL ? "left" : "right";
 
 export default function DashboardScreen() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -64,9 +68,9 @@ export default function DashboardScreen() {
     return plant ? plant.name : "גידול לא מוכר";
   };
 
-  const getDiseaseName = (id: number) => {
+  const getDiseaseName = (id: number | null) => {
     const disease = diseases.find((d) => d.id === id);
-    return disease ? disease.name : "מחלה לא מוכרת";
+    return disease ? disease.name : "ללא מחלה";
   };
 
   const getClientPhone = (id: number) => {
@@ -236,8 +240,10 @@ export default function DashboardScreen() {
                     <View style={styles.infoPillGreen}>
                       <Text style={styles.infoPillTextGreen}>{plantName}</Text>
                     </View>
-                    <View style={styles.infoPillRed}>
-                      <Text style={styles.infoPillTextRed}>{diseaseName}</Text>
+                    <View style={c.disease_id === null ? styles.infoPillNeutral : styles.infoPillRed}>
+                      <Text style={c.disease_id === null ? styles.infoPillTextNeutral : styles.infoPillTextRed}>
+                        {diseaseName}
+                      </Text>
                     </View>
                   </View>
 
@@ -246,6 +252,15 @@ export default function DashboardScreen() {
                       <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
                       <Text style={styles.solutionText} numberOfLines={2}>
                         {c.solution}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {c.next_treatment_recommendations ? (
+                    <View style={styles.solutionBox}>
+                      <Text style={styles.solutionTitle}>טיפול הבא / המלצות:</Text>
+                      <Text style={styles.solutionText} numberOfLines={2}>
+                        {c.next_treatment_recommendations}
                       </Text>
                     </View>
                   ) : null}
@@ -341,7 +356,7 @@ const styles = StyleSheet.create({
     color: "#1a1a1a",
     marginBottom: 12,
     marginTop: 8,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   actionsRow: {
     flexDirection: "row",
@@ -406,7 +421,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   caseCardHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 10,
@@ -418,25 +433,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "bold",
     color: "#1a1a1a",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   clientDetailText: {
     fontSize: 12,
     color: "#666",
     marginTop: 2,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   caseMeta: {
     alignItems: "flex-end",
     marginLeft: 8,
   },
   caseMetaRow: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     alignItems: "center",
     gap: 4,
   },
   infoRow: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     marginBottom: 8,
   },
   infoPillGreen: {
@@ -459,6 +474,17 @@ const styles = StyleSheet.create({
   },
   infoPillTextRed: {
     color: "#c62828",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  infoPillNeutral: {
+    backgroundColor: "#eceff1",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  infoPillTextNeutral: {
+    color: "#607d8b",
     fontSize: 12,
     fontWeight: "600",
   },

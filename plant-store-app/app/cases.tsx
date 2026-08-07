@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  I18nManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,6 +25,9 @@ import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
 import { exportCasePdf } from "../src/services/casePdf";
 
 type SelectorType = "client" | "plant" | "disease" | "fertilizer" | "pesticide";
+
+const rtlRowDirection: "row" | "row-reverse" = I18nManager.isRTL ? "row" : "row-reverse";
+const rtlTextAlign: "left" | "right" = I18nManager.isRTL ? "left" : "right";
 
 export default function CasesScreen() {
   const params = useLocalSearchParams();
@@ -48,8 +52,8 @@ export default function CasesScreen() {
   const [selectedFertilizerAmounts, setSelectedFertilizerAmounts] = useState<Record<number, string>>({});
   const [selectedPesticideAmounts, setSelectedPesticideAmounts] = useState<Record<number, string>>({});
   const [solution, setSolution] = useState("");
+  const [nextTreatmentRecommendations, setNextTreatmentRecommendations] = useState("");
   const [cultivationArea, setCultivationArea] = useState("");
-  const [cost, setCost] = useState("");
 
   // Selector Modal States (Nested)
   const [selectorVisible, setSelectorVisible] = useState(false);
@@ -100,8 +104,8 @@ export default function CasesScreen() {
     setSelectedFertilizerAmounts({});
     setSelectedPesticideAmounts({});
     setSolution("");
+    setNextTreatmentRecommendations("");
     setCultivationArea("");
-    setCost("");
     setModalVisible(true);
   };
 
@@ -127,25 +131,19 @@ export default function CasesScreen() {
       )
     );
     setSolution(c.solution || "");
+    setNextTreatmentRecommendations(c.next_treatment_recommendations || "");
     setCultivationArea(c.cultivation_area_m2 == null ? "" : String(c.cultivation_area_m2));
-    setCost(c.cost.toString() || "");
     setModalVisible(true);
   };
 
   const handleSave = async () => {
-    if (!selectedClientId || !selectedPlantId || !selectedDiseaseId) {
-      Alert.alert("שגיאה", "יש לבחור לקוח, גידול ומחלה.");
+    if (!selectedClientId || !selectedPlantId) {
+      Alert.alert("שגיאה", "יש לבחור לקוח וגידול.");
       return;
     }
 
     const trimmedSolution = solution.trim();
-
-    const trimmedCost = cost.trim();
-    const parsedCost = Number(trimmedCost);
-    if (!/^\d+$/.test(trimmedCost) || !Number.isSafeInteger(parsedCost) || parsedCost <= 0) {
-      Alert.alert("שגיאה", "יש להזין עלות חיובית במספרים שלמים.");
-      return;
-    }
+    const trimmedNextTreatmentRecommendations = nextTreatmentRecommendations.trim();
 
     const fertilizerUsages = Object.entries(selectedFertilizerAmounts).map(
       ([fertilizerId, amount]) => ({
@@ -195,8 +193,8 @@ export default function CasesScreen() {
       fertilizer_usages: fertilizerUsages,
       pesticide_usages: pesticideUsages,
       solution: trimmedSolution || null,
+      next_treatment_recommendations: trimmedNextTreatmentRecommendations || null,
       cultivation_area_m2: parsedCultivationArea,
-      cost: parsedCost,
     };
 
     try {
@@ -253,8 +251,8 @@ export default function CasesScreen() {
           amount,
         })),
         solution: c.solution,
+        nextTreatmentRecommendations: c.next_treatment_recommendations,
         cultivationAreaM2: c.cultivation_area_m2,
-        cost: c.cost,
       });
     } catch (error) {
       Alert.alert("שגיאה", error instanceof Error ? error.message : "יצירת קובץ ה-PDF נכשלה.");
@@ -300,9 +298,9 @@ export default function CasesScreen() {
     return plant ? plant.name : "גידול לא ידוע";
   };
 
-  const getDiseaseName = (id: number) => {
+  const getDiseaseName = (id: number | null) => {
     const disease = diseases.find((d) => d.id === id);
-    return disease ? disease.name : "מחלה לא ידועה";
+    return disease ? disease.name : "ללא מחלה";
   };
 
   const getFertilizerName = (id: number) => {
@@ -470,8 +468,10 @@ export default function CasesScreen() {
                 <View style={styles.infoPillGreen}>
                   <Text style={styles.infoPillTextGreen}>{getPlantName(item.plant_id)}</Text>
                 </View>
-                <View style={styles.infoPillRed}>
-                  <Text style={styles.infoPillTextRed}>{getDiseaseName(item.disease_id)}</Text>
+                <View style={item.disease_id === null ? styles.infoPillNeutral : styles.infoPillRed}>
+                  <Text style={item.disease_id === null ? styles.infoPillTextNeutral : styles.infoPillTextRed}>
+                    {getDiseaseName(item.disease_id)}
+                  </Text>
                 </View>
               </View>
 
@@ -481,7 +481,7 @@ export default function CasesScreen() {
                     {item.fertilizer_usages.map(({ fertilizer_id, amount }) => (
                       <View key={fertilizer_id} style={styles.fertilizerChip}>
                         <Text style={styles.fertilizerChipText}>
-                          {getFertilizerName(fertilizer_id)}: {amount} גרם/סמ"ק
+                          {getFertilizerName(fertilizer_id)}: {amount} גרם/סמ״ק
                         </Text>
                       </View>
                     ))}
@@ -495,7 +495,7 @@ export default function CasesScreen() {
                     {item.pesticide_usages.map(({ pesticide_id, amount }) => (
                       <View key={pesticide_id} style={styles.pesticideChip}>
                         <Text style={styles.pesticideChipText}>
-                          {getPesticideName(pesticide_id)}: {amount} גרם/סמ"ק
+                          {getPesticideName(pesticide_id)}: {amount} גרם/סמ״ק
                         </Text>
                       </View>
                     ))}
@@ -510,16 +510,19 @@ export default function CasesScreen() {
                 </View>
               ) : null}
 
+              {item.next_treatment_recommendations ? (
+                <View style={styles.solutionBox}>
+                  <Text style={styles.solutionTitle}>טיפול הבא / המלצות:</Text>
+                  <Text style={styles.solutionBody}>{item.next_treatment_recommendations}</Text>
+                </View>
+              ) : null}
+
               {item.cultivation_area_m2 != null ? (
                 <Text style={styles.areaText}>
                   שטח גידול: {item.cultivation_area_m2} מ״ר
                 </Text>
               ) : null}
               
-              <Text style={styles.costText}>
-                עלות: ₪{item.cost}
-              </Text>
-
               {/* Actions row */}
               <View style={styles.actionRow}>
                 <TouchableOpacity
@@ -657,7 +660,7 @@ export default function CasesScreen() {
               })}
 
               {/* Disease Selection */}
-              <Text style={styles.label}>מחלה</Text>
+              <Text style={styles.label}>מחלה (אופציונלי)</Text>
               <TouchableOpacity 
                 style={styles.selectButton} 
                 onPress={() => openSelector("disease")}
@@ -666,10 +669,19 @@ export default function CasesScreen() {
                   styles.selectButtonText, 
                   selectedDiseaseId ? { color: "#333" } : { color: "#999" }
                 ]}>
-                  {selectedDiseaseId ? getDiseaseName(selectedDiseaseId) : "תבחר מחלה..."}
+                  {selectedDiseaseId ? getDiseaseName(selectedDiseaseId) : "לא נבחרה מחלה"}
                 </Text>
                 <Ionicons name="chevron-down" size={18} color="#666" />
               </TouchableOpacity>
+              {selectedDiseaseId !== null ? (
+                <TouchableOpacity
+                  style={styles.clearDiseaseButton}
+                  onPress={() => setSelectedDiseaseId(null)}
+                >
+                  <Ionicons name="close-circle-outline" size={18} color="#c62828" />
+                  <Text style={styles.clearDiseaseButtonText}>הסר מחלה</Text>
+                </TouchableOpacity>
+              ) : null}
 
               <Text style={styles.label}>חומרי הדברה (אופציונלי)</Text>
               <TouchableOpacity
@@ -723,7 +735,7 @@ export default function CasesScreen() {
               })}
 
               {/* Solution Text */}
-              <Text style={styles.label}>תיאור לפתרון(אופציונלי)</Text>
+              <Text style={styles.label}>תיאור לפתרון (אופציונלי)</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="רשום את הפתרון שהצעת ללקוח..."
@@ -734,24 +746,25 @@ export default function CasesScreen() {
                 onChangeText={setSolution}
               />
 
+              <Text style={styles.label}>טיפול הבא / המלצות (אופציונלי)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="למשל: להוסיף חומר בעוד שבוע או לבצע טיפול נוסף..."
+                placeholderTextColor="#999"
+                multiline={true}
+                numberOfLines={4}
+                value={nextTreatmentRecommendations}
+                onChangeText={setNextTreatmentRecommendations}
+              />
+
               <Text style={styles.label}>שטח גידול במ״ר (אופציונלי)</Text>
               <TextInput
-                style={[styles.input, styles.costInput]}
+                style={[styles.input, styles.numberInput]}
                 placeholder="רשום שטח גידול..."
                 placeholderTextColor="#999"
                 keyboardType="decimal-pad"
                 value={cultivationArea}
                 onChangeText={setCultivationArea}
-              />
-
-              <Text style={styles.label}>עלות</Text>
-              <TextInput
-                style={[styles.input, styles.costInput]}
-                placeholder="רשום עלות הטיפול..."
-                placeholderTextColor="#999"
-                keyboardType="number-pad"
-                value={cost}
-                onChangeText={setCost}
               />
 
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
@@ -796,6 +809,23 @@ export default function CasesScreen() {
                     onChangeText={setSelectorSearch}
                   />
 
+                  {selectorType === "disease" ? (
+                    <TouchableOpacity
+                      style={styles.selectorItem}
+                      onPress={() => {
+                        setSelectedDiseaseId(null);
+                        setSelectorVisible(false);
+                      }}
+                    >
+                      <View style={{ flexDirection: rtlRowDirection, justifyContent: "space-between", alignItems: "center" }}>
+                        <Text style={styles.selectorItemText}>ללא מחלה</Text>
+                        {selectedDiseaseId === null ? (
+                          <Ionicons name="checkmark" size={18} color="#2e7d32" />
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  ) : null}
+
                   {getFilteredSelectorData().length === 0 ? (
                     <View style={styles.selectorEmpty}>
                       <Text style={styles.selectorEmptyText}>לא נמצאו פריטים.</Text>
@@ -811,11 +841,13 @@ export default function CasesScreen() {
                           style={styles.selectorItem}
                           onPress={() => handleSelectValue(item.id)}
                         >
-                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                          <View style={{ flexDirection: rtlRowDirection, justifyContent: "space-between", alignItems: "center" }}>
                             <Text style={styles.selectorItemText}>{item.label}</Text>
                             {selectorType === "fertilizer" && Object.prototype.hasOwnProperty.call(selectedFertilizerAmounts, item.id) ? (
                               <Ionicons name="checkmark" size={18} color="#2e7d32" />
                             ) : selectorType === "pesticide" && Object.prototype.hasOwnProperty.call(selectedPesticideAmounts, item.id) ? (
+                              <Ionicons name="checkmark" size={18} color="#2e7d32" />
+                            ) : selectorType === "disease" && selectedDiseaseId === item.id ? (
                               <Ionicons name="checkmark" size={18} color="#2e7d32" />
                             ) : null}
                           </View>
@@ -871,7 +903,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#333",
-    textAlign: "right", // Align text to the right for Hebrew
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
   },
   listContainer: {
     padding: 16,
@@ -889,7 +922,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   caseHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 10,
@@ -898,21 +931,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#1a1a1a",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   clientPhone: {
     fontSize: 12,
     color: "#666",
     marginTop: 2,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   dateText: {
     fontSize: 11,
     color: "#999",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   infoRow: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     marginBottom: 12,
   },
   infoPillGreen: {
@@ -950,6 +983,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  infoPillNeutral: {
+    backgroundColor: "#eceff1",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  infoPillTextNeutral: {
+    color: "#607d8b",
+    fontSize: 12,
+    fontWeight: "600",
+  },
   solutionBox: {
     backgroundColor: "#f9f9f9",
     borderRadius: 8,
@@ -963,13 +1007,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     marginBottom: 4,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   solutionBody: {
     fontSize: 13,
     color: "#444",
     lineHeight: 18,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   actionRow: {
     flexDirection: "row",
@@ -1042,7 +1086,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#1a1a1a",
-    textAlign: "right", // Align text to the right for Hebrew
+    textAlign: rtlTextAlign,
   },
   formContainer: {
     padding: 16,
@@ -1053,7 +1097,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 8,
     marginTop: 12,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   input: {
     borderWidth: 1,
@@ -1063,7 +1107,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: "#fafafa",
     color: "#333",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
   },
   textArea: {
     height: 100,
@@ -1084,7 +1129,8 @@ const styles = StyleSheet.create({
   selectButtonText: {
     flex: 1,
     fontSize: 15,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
   },
   saveBtn: {
     backgroundColor: "#2e7d32",
@@ -1119,7 +1165,7 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
   selectorHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
@@ -1128,7 +1174,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textTransform: "capitalize",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   selectorSearch: {
     borderWidth: 1,
@@ -1136,7 +1182,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     height: 40,
     paddingHorizontal: 10,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
     marginBottom: 12,
   },
   selectorList: {
@@ -1150,7 +1197,7 @@ const styles = StyleSheet.create({
   selectorItemText: {
     fontSize: 15,
     color: "#333",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   selectorEmpty: {
     paddingVertical: 20,
@@ -1160,16 +1207,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     fontWeight: "500",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   selectorEmptySub: {
     fontSize: 12,
     color: "#999",
     marginTop: 4,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   fertilizerChipsContainer: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     flexWrap: "wrap",
     alignItems: "center",
     width: "100%",
@@ -1182,11 +1229,25 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     marginBottom: 4,
   },
+  clearDiseaseButton: {
+    alignSelf: "flex-end",
+    flexDirection: rtlRowDirection,
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    marginBottom: 6,
+  },
+  clearDiseaseButtonText: {
+    color: "#c62828",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   fertilizerChipText: {
     color: "#1565c0",
     fontSize: 12,
     fontWeight: "600",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   pesticideChip: {
     backgroundColor: "#fff3e0",
@@ -1200,7 +1261,7 @@ const styles = StyleSheet.create({
     color: "#e65100",
     fontSize: 12,
     fontWeight: "600",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   fertilizerMoreChip: {
     backgroundColor: "#cfd8dc",
@@ -1226,7 +1287,7 @@ const styles = StyleSheet.create({
     color: "#333",
     fontSize: 14,
     fontWeight: "600",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   fertilizerAmountInput: {
     width: 110,
@@ -1236,18 +1297,11 @@ const styles = StyleSheet.create({
   removeFertilizerButton: {
     padding: 4,
   },
-  costInput: {
+  numberInput: {
     fontSize: 15,
     paddingVertical: 10,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
     height: 56,
-  },
-  costText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2e7d32",
-    textAlign: "right",
   },
   areaText: {
     marginTop: 4,
