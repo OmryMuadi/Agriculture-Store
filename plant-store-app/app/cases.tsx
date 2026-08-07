@@ -139,10 +139,6 @@ export default function CasesScreen() {
     }
 
     const trimmedSolution = solution.trim();
-    if (!trimmedSolution) {
-      Alert.alert("שגיאה", "יש להזין תיאור לפתרון.");
-      return;
-    }
 
     const trimmedCost = cost.trim();
     const parsedCost = Number(trimmedCost);
@@ -198,7 +194,7 @@ export default function CasesScreen() {
       // Always send the array so editing can also remove all fertilizers.
       fertilizer_usages: fertilizerUsages,
       pesticide_usages: pesticideUsages,
-      solution: trimmedSolution,
+      solution: trimmedSolution || null,
       cultivation_area_m2: parsedCultivationArea,
       cost: parsedCost,
     };
@@ -485,7 +481,7 @@ export default function CasesScreen() {
                     {item.fertilizer_usages.map(({ fertilizer_id, amount }) => (
                       <View key={fertilizer_id} style={styles.fertilizerChip}>
                         <Text style={styles.fertilizerChipText}>
-                          {getFertilizerName(fertilizer_id)}: {amount} גרם
+                          {getFertilizerName(fertilizer_id)}: {amount} גרם/סמ"ק
                         </Text>
                       </View>
                     ))}
@@ -499,7 +495,7 @@ export default function CasesScreen() {
                     {item.pesticide_usages.map(({ pesticide_id, amount }) => (
                       <View key={pesticide_id} style={styles.pesticideChip}>
                         <Text style={styles.pesticideChipText}>
-                          {getPesticideName(pesticide_id)}: {amount} גרם
+                          {getPesticideName(pesticide_id)}: {amount} גרם/סמ"ק
                         </Text>
                       </View>
                     ))}
@@ -507,10 +503,12 @@ export default function CasesScreen() {
                 </View>
               ) : null}
 
-              <View style={styles.solutionBox}>
-                <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
-                <Text style={styles.solutionBody}>{item.solution}</Text>
-              </View>
+              {item.solution ? (
+                <View style={styles.solutionBox}>
+                  <Text style={styles.solutionTitle}>פתרון שהוצע:</Text>
+                  <Text style={styles.solutionBody}>{item.solution}</Text>
+                </View>
+              ) : null}
 
               {item.cultivation_area_m2 != null ? (
                 <Text style={styles.areaText}>
@@ -642,7 +640,7 @@ export default function CasesScreen() {
                     </TouchableOpacity>
                     <TextInput
                       style={[styles.input, styles.fertilizerAmountInput]}
-                      placeholder="כמות"
+                      placeholder="גרם/סמ״ק"
                       placeholderTextColor="#999"
                       keyboardType="decimal-pad"
                       value={amount}
@@ -657,6 +655,21 @@ export default function CasesScreen() {
                   </View>
                 );
               })}
+
+              {/* Disease Selection */}
+              <Text style={styles.label}>מחלה</Text>
+              <TouchableOpacity 
+                style={styles.selectButton} 
+                onPress={() => openSelector("disease")}
+              >
+                <Text style={[
+                  styles.selectButtonText, 
+                  selectedDiseaseId ? { color: "#333" } : { color: "#999" }
+                ]}>
+                  {selectedDiseaseId ? getDiseaseName(selectedDiseaseId) : "תבחר מחלה..."}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#666" />
+              </TouchableOpacity>
 
               <Text style={styles.label}>חומרי הדברה (אופציונלי)</Text>
               <TouchableOpacity
@@ -693,7 +706,7 @@ export default function CasesScreen() {
                     </TouchableOpacity>
                     <TextInput
                       style={[styles.input, styles.fertilizerAmountInput]}
-                      placeholder="כמות בגרם"
+                      placeholder="גרם/סמ״ק"
                       placeholderTextColor="#999"
                       keyboardType="decimal-pad"
                       value={amount}
@@ -709,23 +722,8 @@ export default function CasesScreen() {
                 );
               })}
 
-              {/* Disease Selection */}
-              <Text style={styles.label}>מחלה</Text>
-              <TouchableOpacity 
-                style={styles.selectButton} 
-                onPress={() => openSelector("disease")}
-              >
-                <Text style={[
-                  styles.selectButtonText, 
-                  selectedDiseaseId ? { color: "#333" } : { color: "#999" }
-                ]}>
-                  {selectedDiseaseId ? getDiseaseName(selectedDiseaseId) : "תבחר מחלה..."}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color="#666" />
-              </TouchableOpacity>
-
               {/* Solution Text */}
-              <Text style={styles.label}>תיאור לפתרון</Text>
+              <Text style={styles.label}>תיאור לפתרון(אופציונלי)</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="רשום את הפתרון שהצעת ללקוח..."

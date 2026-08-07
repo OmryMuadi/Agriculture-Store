@@ -17,7 +17,7 @@ export interface Case {
   disease_id: number;
   fertilizer_usages?: CaseFertilizerUsage[];
   pesticide_usages?: CasePesticideUsage[];
-  solution: string;
+  solution: string | null;
   case_date: string;      // DATE → "YYYY-MM-DD" string from Supabase
   cultivation_area_m2: number | null;
   cost: number;
