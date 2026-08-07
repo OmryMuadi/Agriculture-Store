@@ -14,9 +14,10 @@
     },
     "android": {
       "package": "com.omrym.imaadama",
+      "icon": "./assets/images/adaptive-icon.png",
       "adaptiveIcon": {
-        "backgroundColor": "#2e7d32",
-        "foregroundImage": "./assets/images/icon.png"
+        "backgroundColor": "#315f43",
+        "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -38,7 +39,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

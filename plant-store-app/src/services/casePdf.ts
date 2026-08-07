@@ -1,6 +1,10 @@
+import { Asset } from "expo-asset";
+import { File } from "expo-file-system";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
+
+const BRAND_ICON = require("../../assets/images/icon.png");
 
 export type CasePdfMaterial = {
   name: string;
@@ -17,12 +21,12 @@ export type CasePdfData = {
   diseaseName: string;
   fertilizers: CasePdfMaterial[];
   pesticides: CasePdfMaterial[];
-  solution: string;
+  solution?: string | null;
   cultivationAreaM2?: number | null;
   cost: number;
 };
 
-const escapeHtml = (value: string | number | undefined) =>
+const escapeHtml = (value: string | number | null | undefined) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -42,7 +46,7 @@ const renderMaterials = (title: string, materials: CasePdfMaterial[]) => {
       ({ name, amount }) => `
         <tr>
           <td>${escapeHtml(name)}</td>
-          <td class="amount">${escapeHtml(amount)} גרם</td>
+          <td class="amount">${escapeHtml(amount)} גרם/סמ"ק</td>
         </tr>`
     )
     .join("");
@@ -63,7 +67,7 @@ const renderMaterials = (title: string, materials: CasePdfMaterial[]) => {
     </section>`;
 };
 
-export const buildCasePdfHtml = (data: CasePdfData) => `
+export const buildCasePdfHtml = (data: CasePdfData, logoSrc?: string) => `
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
   <head>
@@ -88,6 +92,22 @@ export const buildCasePdfHtml = (data: CasePdfData) => `
         color: #ffffff;
         background: #2e7d32;
         margin-bottom: 10px;
+      }
+      .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+      }
+      .header-copy { flex: 1; }
+      .header-logo {
+        width: 100px;
+        height: 100px;
+        flex: 0 0 100px;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.82);
+        border-radius: 16px;
+        background: #ffffff;
       }
       .brand { font-size: 14px; font-weight: 700; opacity: 0.9; }
       h1 { margin: 3px 0 6px; font-size: 27px; line-height: 1.2; }
@@ -164,11 +184,15 @@ export const buildCasePdfHtml = (data: CasePdfData) => `
   <body>
     <main class="document">
       <header class="header avoid-break">
-        <div class="brand">אמא אדמה</div>
-        <h1>סיכום טיפול</h1>
-        <div class="header-meta">
-          <span>טיפול מספר ${escapeHtml(data.caseId)}</span>
-          <span>תאריך: ${escapeHtml(formatDate(data.caseDate))}</span>
+        <div class="header-content">
+          <div class="header-copy">
+            <div class="brand">אמא אדמה</div>
+            <h1>סיכום טיפול</h1>
+            <div class="header-meta">
+              <span>תאריך: ${escapeHtml(formatDate(data.caseDate))}</span>
+            </div>
+          </div>
+          ${logoSrc ? `<img class="header-logo" src="${escapeHtml(logoSrc)}" alt="אמא אדמה" />` : ""}
         </div>
       </header>
 
@@ -217,7 +241,7 @@ export const buildCasePdfHtml = (data: CasePdfData) => `
 
       <section class="section avoid-break">
         <h2>הפתרון שניתן</h2>
-        <div class="solution">${escapeHtml(data.solution)}</div>
+        <div class="solution">${escapeHtml(data.solution || "לא צוין")}</div>
       </section>
 
       <section class="cost avoid-break">
@@ -231,7 +255,16 @@ export const buildCasePdfHtml = (data: CasePdfData) => `
 </html>`;
 
 export const exportCasePdf = async (data: CasePdfData) => {
-  const html = buildCasePdfHtml(data);
+  const logoAsset = Asset.fromModule(BRAND_ICON);
+  let logoSrc = logoAsset.uri;
+
+  if (Platform.OS !== "web") {
+    await logoAsset.downloadAsync();
+    const logoFile = new File(logoAsset.localUri ?? logoAsset.uri);
+    logoSrc = `data:image/png;base64,${await logoFile.base64()}`;
+  }
+
+  const html = buildCasePdfHtml(data, logoSrc);
 
   if (Platform.OS === "web") {
     await Print.printAsync({ html });
