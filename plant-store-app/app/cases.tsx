@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  I18nManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,6 +25,9 @@ import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
 import { exportCasePdf } from "../src/services/casePdf";
 
 type SelectorType = "client" | "plant" | "disease" | "fertilizer" | "pesticide";
+
+const rtlRowDirection: "row" | "row-reverse" = I18nManager.isRTL ? "row" : "row-reverse";
+const rtlTextAlign: "left" | "right" = I18nManager.isRTL ? "left" : "right";
 
 export default function CasesScreen() {
   const params = useLocalSearchParams();
@@ -813,7 +817,7 @@ export default function CasesScreen() {
                         setSelectorVisible(false);
                       }}
                     >
-                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                      <View style={{ flexDirection: rtlRowDirection, justifyContent: "space-between", alignItems: "center" }}>
                         <Text style={styles.selectorItemText}>ללא מחלה</Text>
                         {selectedDiseaseId === null ? (
                           <Ionicons name="checkmark" size={18} color="#2e7d32" />
@@ -837,7 +841,7 @@ export default function CasesScreen() {
                           style={styles.selectorItem}
                           onPress={() => handleSelectValue(item.id)}
                         >
-                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                          <View style={{ flexDirection: rtlRowDirection, justifyContent: "space-between", alignItems: "center" }}>
                             <Text style={styles.selectorItemText}>{item.label}</Text>
                             {selectorType === "fertilizer" && Object.prototype.hasOwnProperty.call(selectedFertilizerAmounts, item.id) ? (
                               <Ionicons name="checkmark" size={18} color="#2e7d32" />
@@ -899,7 +903,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#333",
-    textAlign: "right", // Align text to the right for Hebrew
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
   },
   listContainer: {
     padding: 16,
@@ -917,7 +922,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   caseHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 10,
@@ -926,21 +931,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#1a1a1a",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   clientPhone: {
     fontSize: 12,
     color: "#666",
     marginTop: 2,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   dateText: {
     fontSize: 11,
     color: "#999",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   infoRow: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     marginBottom: 12,
   },
   infoPillGreen: {
@@ -1002,13 +1007,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     marginBottom: 4,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   solutionBody: {
     fontSize: 13,
     color: "#444",
     lineHeight: 18,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   actionRow: {
     flexDirection: "row",
@@ -1081,7 +1086,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#1a1a1a",
-    textAlign: "right", // Align text to the right for Hebrew
+    textAlign: rtlTextAlign,
   },
   formContainer: {
     padding: 16,
@@ -1092,7 +1097,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 8,
     marginTop: 12,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   input: {
     borderWidth: 1,
@@ -1102,7 +1107,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: "#fafafa",
     color: "#333",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
   },
   textArea: {
     height: 100,
@@ -1123,7 +1129,8 @@ const styles = StyleSheet.create({
   selectButtonText: {
     flex: 1,
     fontSize: 15,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
   },
   saveBtn: {
     backgroundColor: "#2e7d32",
@@ -1158,7 +1165,7 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
   selectorHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
@@ -1167,7 +1174,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textTransform: "capitalize",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   selectorSearch: {
     borderWidth: 1,
@@ -1175,7 +1182,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     height: 40,
     paddingHorizontal: 10,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
     marginBottom: 12,
   },
   selectorList: {
@@ -1189,7 +1197,7 @@ const styles = StyleSheet.create({
   selectorItemText: {
     fontSize: 15,
     color: "#333",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   selectorEmpty: {
     paddingVertical: 20,
@@ -1199,16 +1207,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     fontWeight: "500",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   selectorEmptySub: {
     fontSize: 12,
     color: "#999",
     marginTop: 4,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   fertilizerChipsContainer: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     flexWrap: "wrap",
     alignItems: "center",
     width: "100%",
@@ -1223,7 +1231,7 @@ const styles = StyleSheet.create({
   },
   clearDiseaseButton: {
     alignSelf: "flex-end",
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     alignItems: "center",
     gap: 5,
     paddingVertical: 7,
@@ -1239,7 +1247,7 @@ const styles = StyleSheet.create({
     color: "#1565c0",
     fontSize: 12,
     fontWeight: "600",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   pesticideChip: {
     backgroundColor: "#fff3e0",
@@ -1253,7 +1261,7 @@ const styles = StyleSheet.create({
     color: "#e65100",
     fontSize: 12,
     fontWeight: "600",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   fertilizerMoreChip: {
     backgroundColor: "#cfd8dc",
@@ -1279,7 +1287,7 @@ const styles = StyleSheet.create({
     color: "#333",
     fontSize: 14,
     fontWeight: "600",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   fertilizerAmountInput: {
     width: 110,
@@ -1292,7 +1300,7 @@ const styles = StyleSheet.create({
   numberInput: {
     fontSize: 15,
     paddingVertical: 10,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
     height: 56,
   },
   areaText: {

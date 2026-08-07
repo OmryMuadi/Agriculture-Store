@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  I18nManager,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,9 @@ import { Disease, subscribeToDiseases } from "../src/entities/disease.entity";
 import { Fertilizer, subscribeToFertilizers } from "../src/entities/fertilizer.entity";
 import { Pesticide, subscribeToPesticides } from "../src/entities/pesticide.entity";
 import { Plant, subscribeToPlants } from "../src/entities/plant.entity";
+
+const rtlRowDirection: "row" | "row-reverse" = I18nManager.isRTL ? "row" : "row-reverse";
+const rtlTextAlign: "left" | "right" = I18nManager.isRTL ? "left" : "right";
 
 export default function DashboardScreen() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -352,7 +356,7 @@ const styles = StyleSheet.create({
     color: "#1a1a1a",
     marginBottom: 12,
     marginTop: 8,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   actionsRow: {
     flexDirection: "row",
@@ -417,7 +421,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   caseCardHeader: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 10,
@@ -429,25 +433,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "bold",
     color: "#1a1a1a",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   clientDetailText: {
     fontSize: 12,
     color: "#666",
     marginTop: 2,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   caseMeta: {
     alignItems: "flex-end",
     marginLeft: 8,
   },
   caseMetaRow: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     alignItems: "center",
     gap: 4,
   },
   infoRow: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     marginBottom: 8,
   },
   infoPillGreen: {

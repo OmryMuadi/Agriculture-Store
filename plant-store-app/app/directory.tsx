@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  I18nManager,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -23,6 +24,9 @@ import { addPlant, deletePlant, Plant, subscribeToPlants } from "../src/entities
 import { CityDropdownItem, fetchIsraelCities } from "../src/services/israelCities";
 
 type ActiveTab = "clients" | "plants" | "diseases" | "fertilizers" | "pesticides";
+
+const rtlRowDirection: "row" | "row-reverse" = I18nManager.isRTL ? "row" : "row-reverse";
+const rtlTextAlign: "left" | "right" = I18nManager.isRTL ? "left" : "right";
 
 export default function DirectoryScreen() {
   const params = useLocalSearchParams();
@@ -650,7 +654,7 @@ const styles = StyleSheet.create({
     color: "#2e7d32",
   },
   searchContainer: {
-    flexDirection: "row-reverse",
+    flexDirection: rtlRowDirection,
     alignItems: "center",
     backgroundColor: "#fff",
     margin: 16,
@@ -664,7 +668,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#333",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
     writingDirection: "rtl",
     paddingVertical: 4,
   },
@@ -786,12 +790,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#1a1a1a",
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   formContainer: {
     padding: 16,
     paddingBottom: 32,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   modalScrollView: {
     maxHeight: "100%",
@@ -805,7 +809,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 8,
     marginTop: 12,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   input: {
     borderWidth: 1,
@@ -817,19 +821,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     color: "#333",
     marginBottom: 8,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
+    writingDirection: "rtl",
   },
   helperText: {
     fontSize: 12,
     color: "#666",
     marginBottom: 8,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   helperTextError: {
     fontSize: 12,
     color: "#c62828",
     marginBottom: 8,
-    textAlign: "right",
+    textAlign: rtlTextAlign,
   },
   suggestionsBox: {
     borderWidth: 1,

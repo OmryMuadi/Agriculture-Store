@@ -40,7 +40,13 @@
           }
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-localization",
+        {
+          "forcesRTL": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
